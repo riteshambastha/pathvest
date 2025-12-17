@@ -1,0 +1,59 @@
+# FastAPI Core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.25
+alembic==1.13.1
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+greenlet==3.3.0
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt>=4.0.0,<5.0.0
+python-multipart==0.0.6
+
+# HTTP & Data
+httpx==0.26.0
+requests==2.32.5
+python-dotenv==1.2.1
+
+# Validation & Serialization
+email-validator==2.1.0
+python-dateutil==2.8.2
+
+# Google Cloud Platform (Optional - for BigQuery if needed)
+google-cloud-bigquery==3.13.0
+google-cloud-storage==2.14.0
+google-auth==2.25.2
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Scientific Computing for Backtesting
+scipy==1.11.4
+statsmodels==0.14.1
+
+# Visualization
+matplotlib==3.8.2
+plotly==5.18.0
+
+# Testing & Mocking
+faker==22.0.0
+
+# Timezone support
+pytz==2023.3
+
+# Export & Reporting
+openpyxl==3.1.2
+reportlab==4.0.7
+
+# Note: LEAN packages removed for deployment compatibility
+# The custom backtest engine will be used instead
+# If LEAN is needed later, deploy in a separate worker service with Python 3.9
+
