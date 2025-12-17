@@ -30,11 +30,17 @@ class Settings(BaseSettings):
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 0
     
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def convert_database_url_to_async(cls, v: str) -> str:
+        """Convert PostgreSQL URL to async-compatible format"""
+        if v and v.startswith("postgresql://"):
+            # Convert to asyncpg for async SQLAlchemy
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+    
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = []
-    
-    # SEC API
-    SEC_API_KEY: str = "YOUR_API_KEY_HERE"
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
