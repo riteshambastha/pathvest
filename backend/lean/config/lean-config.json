@@ -1,0 +1,23 @@
+{
+  "algorithm-type-name": "PathVestStrategy",
+  "algorithm-language": "Python",
+  "data-folder": "/Users/riteshambastha/projects/pathvest/backend/lean/data",
+  "results-destination-folder": "/Users/riteshambastha/projects/pathvest/backend/lean/results",
+  "parameters": {
+    "start-date": "2022-01-01",
+    "end-date": "2023-12-31",
+    "cash": 100000,
+    "resolution": "Daily"
+  },
+  "environments": {
+    "backtesting": {
+      "live-mode": false,
+      "setup-handler": "QuantConnect.Lean.Engine.Setup.BacktestingSetupHandler",
+      "result-handler": "QuantConnect.Lean.Engine.Results.BacktestingResultHandler",
+      "data-feed-handler": "QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed",
+      "real-time-handler": "QuantConnect.Lean.Engine.RealTime.BacktestingRealTimeHandler",
+      "history-provider": "SubscriptionDataReaderHistoryProvider",
+      "transaction-handler": "BacktestingTransactionHandler"
+    }
+  }
+}

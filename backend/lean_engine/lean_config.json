@@ -1,0 +1,73 @@
+{
+  "algorithm-type-name": "InstitutionalFollowingStrategy",
+  "algorithm-language": "Python",
+  "algorithm-location": "strategies/institutional_strategy.py",
+  
+  "parameters": {
+    "initial-cash": 1000000,
+    "start-date": "2013-01-01",
+    "end-date": "2023-12-31",
+    "enable-fractional-shares": true
+  },
+  
+  "data-folder": "../data",
+  "cache-location": "../cache",
+  "results": "../results",
+  
+  "debugging": {
+    "enabled": false,
+    "log-handler": "ConsoleLogHandler"
+  },
+  
+  "brokerage": {
+    "name": "DefaultBrokerageModel",
+    "account-type": "margin"
+  },
+  
+  "transaction-fees": {
+    "model": "ConstantFeeModel",
+    "fee-per-share": 0.005
+  },
+  
+  "slippage": {
+    "model": "ConstantSlippageModel",
+    "slippage-percent": 0.0025
+  },
+  
+  "data-feeds": {
+    "sec-filings": {
+      "type": "custom",
+      "source": "bigquery",
+      "update-frequency": "quarterly"
+    },
+    "market-data": {
+      "type": "alphavantage",
+      "resolution": "daily"
+    }
+  },
+  
+  "strategy-parameters": {
+    "position-sizing": {
+      "method": "static",
+      "percent-per-position": 0.05,
+      "min-positions": 5,
+      "max-positions": 20
+    },
+    "exit-rules": {
+      "enable-thesis-drift": true,
+      "enable-insider-reversal": true,
+      "enable-trailing-stop": true,
+      "trailing-stop-percent": 0.15,
+      "enable-dead-money": true,
+      "dead-money-quarters": 4
+    },
+    "rebalance-frequency": "monthly"
+  },
+  
+  "comments": [
+    "PathVest Institutional Equity Backtesting Engine",
+    "LEAN configuration for institutional following strategy",
+    "Based on 13F/Form 4 filings with technical confirmation"
+  ]
+}
+

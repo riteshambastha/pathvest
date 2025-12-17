@@ -1,0 +1,167 @@
+# Google Cloud Build configuration for PathVest
+steps:
+  # Build Backend Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-backend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pathvest-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pathvest-backend:latest'
+      - '-f'
+      - 'backend/Dockerfile'
+      - './backend'
+
+  # Build LEAN Worker Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-lean-worker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pathvest-lean-worker:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pathvest-lean-worker:latest'
+      - '-f'
+      - 'backend/lean_engine/Dockerfile'
+      - './backend/lean_engine'
+
+  # Build Frontend Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-frontend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pathvest-frontend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/pathvest-frontend:latest'
+      - '-f'
+      - 'frontend/Dockerfile'
+      - './frontend'
+    waitFor: ['-']
+
+  # Push Backend Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/pathvest-backend'
+    waitFor: ['build-backend']
+
+  # Push LEAN Worker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-lean-worker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/pathvest-lean-worker'
+    waitFor: ['build-lean-worker']
+
+  # Push Frontend Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-frontend'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/pathvest-frontend'
+    waitFor: ['build-frontend']
+
+  # Deploy Backend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-backend'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'pathvest-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/pathvest-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '900'
+      - '--max-instances'
+      - '10'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=production,GCP_PROJECT_ID=$PROJECT_ID'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest,ALPHAVANTAGE_API_KEY=ALPHAVANTAGE_API_KEY:latest'
+    waitFor: ['push-backend']
+
+  # Deploy LEAN Worker to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-lean-worker'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'pathvest-lean-worker'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/pathvest-lean-worker:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--no-allow-unauthenticated'
+      - '--memory'
+      - '4Gi'
+      - '--cpu'
+      - '4'
+      - '--timeout'
+      - '3600'
+      - '--max-instances'
+      - '5'
+      - '--set-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest'
+    waitFor: ['push-lean-worker']
+
+  # Deploy Frontend to Firebase Hosting
+  - name: 'node:18'
+    id: 'build-frontend-static'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd frontend
+        npm ci
+        npm run build
+    waitFor: ['push-frontend']
+
+  - name: 'gcr.io/$PROJECT_ID/firebase'
+    id: 'deploy-frontend-firebase'
+    args:
+      - 'deploy'
+      - '--only'
+      - 'hosting'
+      - '--project'
+      - '$PROJECT_ID'
+    waitFor: ['build-frontend-static']
+
+# Build timeout
+timeout: '1800s'
+
+# Images to store in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/pathvest-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/pathvest-backend:latest'
+  - 'gcr.io/$PROJECT_ID/pathvest-lean-worker:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/pathvest-lean-worker:latest'
+  - 'gcr.io/$PROJECT_ID/pathvest-frontend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/pathvest-frontend:latest'
+
+# Substitutions
+substitutions:
+  _DEPLOY_REGION: 'us-central1'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+

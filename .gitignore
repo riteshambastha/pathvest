@@ -1,0 +1,195 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+venv-lean/
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+*.dmg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+test_results.log
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+pathvest_local.db
+
+# Data files (keep only sample data)
+*.csv
+data/
+backend/data/sec/*.json
+backend/data/sec/*.csv
+migration_backups/
+
+# Sensitive files
+gcp-credentials.json
+*credentials*.json
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# JSON data files (generated)
+*_holdings*.json
+*_filings*.json
+*_metadata.json
+all_real_sec_holdings.json
+expanded_sec_*.json
+historical_*.json
+real_sec_*.json
+
+# Frontend build artifacts
+frontend/dist/
+frontend/build/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Backend specific
+alembic/versions/*.pyc
+lean/data/
+lean/results/
+lean_engine/data/
+
+# Docker
+docker-compose.override.yml
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# Temporary test scripts (keep organized ones)
+backend/test_*.py
+backend/fetch_*.py
+backend/step*.py
+backend/run_*.py
+backend/generate_*.py
+backend/populate_*.py
+backend/ingest_*.py
+backend/fix_*.py
+backend/verify_*.py
+backend/export_*.py
+backend/batch_*.py
+backend/check_*.py
+backend/add_*.py
+backend/migrate_*.py
+backend/update_*.py
+backend/init_*.py
+backend/setup_*.py
+backend/import_*.py
+
+# Development documentation (keep main docs)
+ACCOMPLISHMENTS_CHECKLIST.md
+API_CALL_FLOW.md
+BACKTEST_REAL_DATA_PROOF.md
+BIGQUERY_*.md
+BUG_FIX_*.md
+CHECKLIST.md
+COMPLETE_*.md
+CORRECTED_STATUS_REPORT.md
+DATA_INGESTION_SUMMARY.md
+DATA_STATUS_REPORT.md
+DRAWDOWN_DISPLAY_FIX.md
+DUAL_ENGINE_TESTING_GUIDE.md
+DYNAMIC_*.md
+EXIT_MODULES_EXECUTIVE_SUMMARY.md
+EXPANDED_SEC_DATABASE.md
+FINAL_SESSION_SUMMARY.md
+FINAL_UNIVERSE_DATA_SUMMARY.md
+FRONTEND_COMPLETE_VERIFICATION.md
+FRONTEND_STEPS_COMPLETE.md
+IMPLEMENTATION_*.md
+INSTITUTIONAL_FOLLOWING_COMPLETE.md
+INTERACTIVE_LOADING_SCREEN.md
+LEAN_FINAL_SUMMARY.md
+LEAN_PHASE1_COMPLETE.md
+LOCAL_TEST_RESULTS.md
+MILESTONE_*.md
+MISSION_ACCOMPLISHED.md
+MY_STRATEGIES_*.md
+NA_VALUES_FIX.md
+NEW_SUMMARY_INTERFACE.md
+PHASE*.md
+POSITION_SIZING_EXECUTIVE_SUMMARY.md
+POSTGRES_STRATEGY_STORAGE.md
+PROJECT_COMPLETE.md
+PROJECT_SUMMARY.md
+QUICK_START_INSTITUTIONAL.md
+QUICK_START_STRATEGY_STORAGE.md
+QUICK_TEST_GUIDE.md
+READY_TO_BACKTEST_SUMMARY.md
+REAL_DATA_UI_UPDATE.md
+REAL_HISTORICAL_BACKTESTING.md
+REAL_VS_MOCK_*.md
+SEC_INTEGRATION_GUIDE.md
+SETUP_COMPLETE.md
+SIGNAL_ENGINE_EXECUTIVE_SUMMARY.md
+STOCK_DIVERSITY_UPDATE.md
+STRATEGY_STORAGE_ACTIVATED.md
+TABS_COMPLETE_GUIDE.md
+TABS_DATA_STATUS.md
+TEST_COMPLETE_FRONTEND.md
+TEST_REAL_BACKTESTING_NOW.md
+TEST_RESULTS_API_FLOW.md
+TEST_RESULTS_FINAL.md
+TIMEOUT_FIX.md
+TODAYS_PROGRESS_SUMMARY.md
+UNIVERSE_DATA_*.md
+VISUALIZATIONS_STATUS.md
+BACKTEST_UX_IMPROVEMENT.md
+backend/MIGRATION_*.md
+

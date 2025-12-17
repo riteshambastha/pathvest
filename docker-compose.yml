@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: pathvest-postgres
+    environment:
+      POSTGRES_DB: pathvest
+      POSTGRES_USER: pathvest_user
+      POSTGRES_PASSWORD: pathvest_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pathvest_user -d pathvest"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: pathvest-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pathvest-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://pathvest_user:pathvest_password@postgres:5432/pathvest
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - ENABLE_MOCK_DATA=true
+      - ALPHAVANTAGE_API_KEY=${ALPHAVANTAGE_API_KEY}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # LEAN Engine Worker
+  lean-worker:
+    build:
+      context: ./backend/lean_engine
+      dockerfile: Dockerfile
+    container_name: pathvest-lean-worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://pathvest_user:pathvest_password@postgres:5432/pathvest
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/lean_engine:/app
+      - lean_data:/data
+
+  # Frontend (development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: pathvest-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  lean_data:
+
+networks:
+  default:
+    name: pathvest-network
+
