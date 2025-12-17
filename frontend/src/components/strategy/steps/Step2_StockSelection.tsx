@@ -207,13 +207,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.sub_universe_filters.investor.aum_min / 1e9}
+              value={(config.sub_universe_filters?.investor?.aum_min || 1e9) / 1e9}
               onChange={(e) =>
                 updateConfig({
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...config.sub_universe_filters.investor,
+                      ...(config.sub_universe_filters?.investor || {}),
                       aum_min: parseFloat(e.target.value) * 1e9,
                     },
                   },
@@ -230,13 +230,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.sub_universe_filters.investor.track_record_quarters}
+              value={config.sub_universe_filters?.investor?.track_record_quarters || 8}
               onChange={(e) =>
                 updateConfig({
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...config.sub_universe_filters.investor,
+                      ...(config.sub_universe_filters?.investor || {}),
                       track_record_quarters: parseInt(e.target.value),
                     },
                   },
@@ -252,13 +252,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.sub_universe_filters.investor.concentration_max * 100}
+              value={(config.sub_universe_filters?.investor?.concentration_max || 0.2) * 100}
               onChange={(e) =>
                 updateConfig({
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...config.sub_universe_filters.investor,
+                      ...(config.sub_universe_filters?.investor || {}),
                       concentration_max: parseFloat(e.target.value) / 100,
                     },
                   },
@@ -275,13 +275,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.sub_universe_filters.investor.turnover_max * 100}
+              value={(config.sub_universe_filters?.investor?.turnover_max || 0.5) * 100}
               onChange={(e) =>
                 updateConfig({
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...config.sub_universe_filters.investor,
+                      ...(config.sub_universe_filters?.investor || {}),
                       turnover_max: parseFloat(e.target.value) / 100,
                     },
                   },
