@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Step1_Setup from './steps/Step1_Setup';
 import Step2_StockSelection from './steps/Step2_StockSelection';
 import Step3_EntryPositionSizing from './steps/Step3_EntryPositionSizing';
@@ -148,7 +147,6 @@ const steps = [
 ];
 
 const StrategyWizard: React.FC = () => {
-  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [config, setConfig] = useState<StrategyConfig>({
     name: 'My Strategy',

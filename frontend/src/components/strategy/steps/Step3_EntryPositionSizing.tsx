@@ -141,7 +141,7 @@ const Step3_EntryPositionSizing: React.FC<StepProps> = ({ config, updateConfig, 
                 min="0.01"
                 max="0.25"
                 step="0.01"
-                value={positionSizing.max_position_size * 100}
+                value={(positionSizing.max_position_size ?? 0.2) * 100}
                 onChange={(e) =>
                   updatePositionSizing({ max_position_size: parseFloat(e.target.value) / 100 })
                 }
@@ -162,7 +162,7 @@ const Step3_EntryPositionSizing: React.FC<StepProps> = ({ config, updateConfig, 
                 min="0.01"
                 max="0.10"
                 step="0.01"
-                value={positionSizing.min_position_size * 100}
+                value={(positionSizing.min_position_size ?? 0.01) * 100}
                 onChange={(e) =>
                   updatePositionSizing({ min_position_size: parseFloat(e.target.value) / 100 })
                 }

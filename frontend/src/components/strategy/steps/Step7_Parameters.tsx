@@ -105,7 +105,7 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
                   min="0"
                   max="1"
                   step="0.01"
-                  value={transactionCosts.commission_pct * 100}
+                  value={(transactionCosts.commission_pct ?? 0.001) * 100}
                   onChange={(e) =>
                     updateTransactionCosts({ commission_pct: parseFloat(e.target.value) / 100 })
                   }
@@ -126,7 +126,7 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
                 min="0"
                 max="1"
                 step="0.01"
-                value={transactionCosts.slippage_pct * 100}
+                value={(transactionCosts.slippage_pct ?? 0.001) * 100}
                 onChange={(e) =>
                   updateTransactionCosts({ slippage_pct: parseFloat(e.target.value) / 100 })
                 }

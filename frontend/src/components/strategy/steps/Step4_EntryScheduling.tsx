@@ -169,7 +169,7 @@ const Step4_EntryScheduling: React.FC<StepProps> = ({ config, updateConfig, next
                 min="0"
                 max="5"
                 step="0.1"
-                value={entryRules.max_slippage_pct * 100}
+                value={(entryRules.max_slippage_pct ?? 0.005) * 100}
                 onChange={(e) =>
                   updateEntryRules({ max_slippage_pct: parseFloat(e.target.value) / 100 })
                 }

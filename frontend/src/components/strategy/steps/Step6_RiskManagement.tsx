@@ -69,7 +69,7 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
                 min="5"
                 max="50"
                 step="1"
-                value={riskManagement.max_portfolio_drawdown * 100}
+                value={(riskManagement.max_portfolio_drawdown ?? 0.2) * 100}
                 onChange={(e) =>
                   updateRiskManagement({ max_portfolio_drawdown: parseFloat(e.target.value) / 100 })
                 }
@@ -92,7 +92,7 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
                 min="5"
                 max="30"
                 step="1"
-                value={riskManagement.max_position_loss * 100}
+                value={(riskManagement.max_position_loss ?? 0.15) * 100}
                 onChange={(e) =>
                   updateRiskManagement({ max_position_loss: parseFloat(e.target.value) / 100 })
                 }
@@ -144,7 +144,7 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
                 min="10"
                 max="100"
                 step="5"
-                value={riskManagement.sector_concentration_limit * 100}
+                value={(riskManagement.sector_concentration_limit ?? 0.3) * 100}
                 onChange={(e) =>
                   updateRiskManagement({ sector_concentration_limit: parseFloat(e.target.value) / 100 })
                 }
@@ -167,7 +167,7 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
                 min="0"
                 max="20"
                 step="1"
-                value={riskManagement.cash_reserve_pct * 100}
+                value={(riskManagement.cash_reserve_pct ?? 0.05) * 100}
                 onChange={(e) =>
                   updateRiskManagement({ cash_reserve_pct: parseFloat(e.target.value) / 100 })
                 }
@@ -269,7 +269,7 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
       </div>
 
       {/* Warning if no limits */}
-      {riskManagement.max_portfolio_drawdown >= 0.5 && (
+      {(riskManagement.max_portfolio_drawdown ?? 0.2) >= 0.5 && (
         <div className="bg-red-50 p-4 rounded-lg border border-red-200">
           <div className="flex items-start">
             <svg className="h-5 w-5 text-red-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -278,7 +278,7 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
             <div className="ml-3">
               <h4 className="text-sm font-medium text-red-900">High Risk Configuration</h4>
               <p className="mt-1 text-xs text-red-700">
-                Maximum drawdown of {riskManagement.max_portfolio_drawdown * 100}% is very high. Consider reducing to 20-25% for most strategies.
+                Maximum drawdown of {(riskManagement.max_portfolio_drawdown ?? 0.2) * 100}% is very high. Consider reducing to 20-25% for most strategies.
               </p>
             </div>
           </div>

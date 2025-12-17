@@ -157,12 +157,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.universe_filters.market_cap_min / 1e9}
+              value={(config.universe_filters?.market_cap_min || 1e9) / 1e9}
               onChange={(e) =>
                 updateConfig({
                   universe_filters: {
-                    ...config.universe_filters,
                     market_cap_min: parseFloat(e.target.value) * 1e9,
+                    index_membership: config.universe_filters?.index_membership || 'SP500',
+                    lookback_quarters: config.universe_filters?.lookback_quarters || 4,
                   },
                 })
               }
@@ -176,12 +177,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
               Index Membership
             </label>
             <select
-              value={config.universe_filters.index_membership}
+              value={config.universe_filters?.index_membership || 'SP500'}
               onChange={(e) =>
                 updateConfig({
                   universe_filters: {
-                    ...config.universe_filters,
+                    market_cap_min: config.universe_filters?.market_cap_min || 1e9,
                     index_membership: e.target.value,
+                    lookback_quarters: config.universe_filters?.lookback_quarters || 4,
                   },
                 })
               }
@@ -213,8 +215,10 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...(config.sub_universe_filters?.investor || {}),
                       aum_min: parseFloat(e.target.value) * 1e9,
+                      track_record_quarters: config.sub_universe_filters?.investor?.track_record_quarters || 8,
+                      concentration_max: config.sub_universe_filters?.investor?.concentration_max || 0.2,
+                      turnover_max: config.sub_universe_filters?.investor?.turnover_max || 0.5,
                     },
                   },
                 })
@@ -236,8 +240,10 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...(config.sub_universe_filters?.investor || {}),
+                      aum_min: config.sub_universe_filters?.investor?.aum_min || 1e9,
                       track_record_quarters: parseInt(e.target.value),
+                      concentration_max: config.sub_universe_filters?.investor?.concentration_max || 0.2,
+                      turnover_max: config.sub_universe_filters?.investor?.turnover_max || 0.5,
                     },
                   },
                 })
@@ -258,8 +264,10 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...(config.sub_universe_filters?.investor || {}),
+                      aum_min: config.sub_universe_filters?.investor?.aum_min || 1e9,
+                      track_record_quarters: config.sub_universe_filters?.investor?.track_record_quarters || 8,
                       concentration_max: parseFloat(e.target.value) / 100,
+                      turnover_max: config.sub_universe_filters?.investor?.turnover_max || 0.5,
                     },
                   },
                 })
@@ -281,7 +289,9 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     investor: {
-                      ...(config.sub_universe_filters?.investor || {}),
+                      aum_min: config.sub_universe_filters?.investor?.aum_min || 1e9,
+                      track_record_quarters: config.sub_universe_filters?.investor?.track_record_quarters || 8,
+                      concentration_max: config.sub_universe_filters?.investor?.concentration_max || 0.2,
                       turnover_max: parseFloat(e.target.value) / 100,
                     },
                   },
@@ -305,14 +315,14 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.sub_universe_filters.transaction.min_buy_value / 1e6}
+              value={(config.sub_universe_filters?.transaction?.min_buy_value || 1e6) / 1e6}
               onChange={(e) =>
                 updateConfig({
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     transaction: {
-                      ...config.sub_universe_filters.transaction,
                       min_buy_value: parseFloat(e.target.value) * 1e6,
+                      share_increase_min: config.sub_universe_filters?.transaction?.share_increase_min || 0.1,
                     },
                   },
                 })
@@ -327,13 +337,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
             </label>
             <input
               type="number"
-              value={config.sub_universe_filters.transaction.share_increase_min * 100}
+              value={(config.sub_universe_filters?.transaction?.share_increase_min || 0.1) * 100}
               onChange={(e) =>
                 updateConfig({
                   sub_universe_filters: {
                     ...config.sub_universe_filters,
                     transaction: {
-                      ...config.sub_universe_filters.transaction,
+                      min_buy_value: config.sub_universe_filters?.transaction?.min_buy_value || 1e6,
                       share_increase_min: parseFloat(e.target.value) / 100,
                     },
                   },
@@ -358,17 +368,18 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
               <label key={role} className="inline-flex items-center mr-4">
                 <input
                   type="checkbox"
-                  checked={config.sub_universe_filters.insider.roles.includes(role)}
+                  checked={config.sub_universe_filters?.insider?.roles?.includes(role) || false}
                   onChange={(e) => {
+                    const currentRoles = config.sub_universe_filters?.insider?.roles || [];
                     const roles = e.target.checked
-                      ? [...config.sub_universe_filters.insider.roles, role]
-                      : config.sub_universe_filters.insider.roles.filter((r) => r !== role);
+                      ? [...currentRoles, role]
+                      : currentRoles.filter((r) => r !== role);
                     updateConfig({
                       sub_universe_filters: {
                         ...config.sub_universe_filters,
                         insider: {
-                          ...config.sub_universe_filters.insider,
                           roles,
+                          value_min: config.sub_universe_filters?.insider?.value_min || 50000,
                         },
                       },
                     });
@@ -387,13 +398,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
           </label>
           <input
             type="number"
-            value={config.sub_universe_filters.insider.value_min / 1000}
+            value={(config.sub_universe_filters?.insider?.value_min || 50000) / 1000}
             onChange={(e) =>
               updateConfig({
                 sub_universe_filters: {
                   ...config.sub_universe_filters,
                   insider: {
-                    ...config.sub_universe_filters.insider,
+                    roles: config.sub_universe_filters?.insider?.roles || [],
                     value_min: parseFloat(e.target.value) * 1000,
                   },
                 },

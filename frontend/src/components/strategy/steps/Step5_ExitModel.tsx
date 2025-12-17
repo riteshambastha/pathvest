@@ -142,7 +142,7 @@ const Step5_ExitModel: React.FC<StepProps> = ({ config, updateConfig, nextStep, 
                 min="5"
                 max="50"
                 step="1"
-                value={exitRules.trailing_stop_pct * 100}
+                value={(exitRules.trailing_stop_pct ?? 0.15) * 100}
                 onChange={(e) =>
                   updateExitRules({ trailing_stop_pct: parseFloat(e.target.value) / 100 })
                 }
@@ -179,7 +179,7 @@ const Step5_ExitModel: React.FC<StepProps> = ({ config, updateConfig, nextStep, 
                 min="10"
                 max="100"
                 step="5"
-                value={exitRules.take_profit_pct * 100}
+                value={(exitRules.take_profit_pct ?? 0.3) * 100}
                 onChange={(e) =>
                   updateExitRules({ take_profit_pct: parseFloat(e.target.value) / 100 })
                 }
@@ -239,7 +239,7 @@ const Step5_ExitModel: React.FC<StepProps> = ({ config, updateConfig, nextStep, 
                   min="-20"
                   max="20"
                   step="1"
-                  value={exitRules.dead_money_threshold * 100}
+                  value={(exitRules.dead_money_threshold ?? 0.05) * 100}
                   onChange={(e) =>
                     updateExitRules({ dead_money_threshold: parseFloat(e.target.value) / 100 })
                   }
@@ -298,10 +298,10 @@ const Step5_ExitModel: React.FC<StepProps> = ({ config, updateConfig, nextStep, 
             <div>✓ Insider Reversal (Form 4 selling signals)</div>
           )}
           {exitRules.trailing_stop_enabled && (
-            <div>✓ Trailing Stop Loss ({exitRules.trailing_stop_pct * 100}% drawdown)</div>
+            <div>✓ Trailing Stop Loss ({(exitRules.trailing_stop_pct ?? 0.15) * 100}% drawdown)</div>
           )}
           {exitRules.take_profit_enabled && (
-            <div>✓ Take Profit ({exitRules.take_profit_pct * 100}% gain target)</div>
+            <div>✓ Take Profit ({(exitRules.take_profit_pct ?? 0.3) * 100}% gain target)</div>
           )}
           {exitRules.dead_money_enabled && (
             <div>✓ Dead Money Exit ({exitRules.dead_money_quarters}Q holding period)</div>

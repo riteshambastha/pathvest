@@ -135,12 +135,15 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
             <input
               type="date"
               id="start_date"
-              value={config.backtest_period.start_date}
+              value={config.backtest_period?.start_date || ''}
               min={dateRange?.min_date}
               max={dateRange?.max_date}
               onChange={(e) =>
                 updateConfig({
-                  backtest_period: { ...config.backtest_period, start_date: e.target.value },
+                  backtest_period: { 
+                    start_date: e.target.value,
+                    end_date: config.backtest_period?.end_date || ''
+                  },
                 })
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
@@ -160,12 +163,15 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
             <input
               type="date"
               id="end_date"
-              value={config.backtest_period.end_date}
+              value={config.backtest_period?.end_date || ''}
               min={dateRange?.min_date}
               max={dateRange?.max_date}
               onChange={(e) =>
                 updateConfig({
-                  backtest_period: { ...config.backtest_period, end_date: e.target.value },
+                  backtest_period: { 
+                    start_date: config.backtest_period?.start_date || '',
+                    end_date: e.target.value
+                  },
                 })
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"

@@ -205,7 +205,7 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
               )}
               {config.exit_rules?.trailing_stop_enabled && (
                 <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                  ✓ Trailing Stop ({(config.exit_rules.trailing_stop_pct * 100).toFixed(0)}%)
+                  ✓ Trailing Stop ({((config.exit_rules.trailing_stop_pct ?? 0.15) * 100).toFixed(0)}%)
                 </span>
               )}
               {config.exit_rules?.dead_money_enabled && (
