@@ -50,10 +50,12 @@ plotly==5.18.0
 # Testing & Mocking
 faker==22.0.0
 
-# LEAN/QuantConnect Backtesting Engine
-lean==1.0.172
-quantconnect==1.0.172
+# Timezone support (for backtesting)
 pytz==2023.3
+
+# Note: LEAN/QuantConnect packages removed - incompatible with PyPI
+# The Custom Backtest Engine is fully functional and handles all backtesting
+# If official LEAN integration is needed, it requires Docker deployment separately
 
 # Export & Reporting
 openpyxl==3.1.2
