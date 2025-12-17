@@ -10,17 +10,22 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.12",
+    "axios": "^1.6.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.561.0",
+    "plotly.js": "^2.27.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-plotly.js": "^2.6.0",
     "react-router-dom": "^6.21.0",
-    "axios": "^1.6.2",
-    "plotly.js": "^2.27.1",
-    "react-plotly.js": "^2.6.0"
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@types/plotly.js": "^2.29.0",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
-    "@types/plotly.js": "^2.29.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "@vitejs/plugin-react": "^4.2.1",
