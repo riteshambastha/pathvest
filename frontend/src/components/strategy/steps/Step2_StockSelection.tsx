@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
+import { apiClient } from '@/services/api';
 
 interface StepProps {
   config: StrategyConfig;
@@ -26,10 +27,9 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
 
   useEffect(() => {
     // Fetch available institutions
-    fetch('/api/v1/data/sec/institutions')
-      .then(res => res.json())
-      .then(data => {
-        setInstitutions(data.institutions || []);
+    apiClient.get('/api/v1/data/sec/institutions')
+      .then(res => {
+        setInstitutions(res.data.institutions || []);
         setLoading(false);
       })
       .catch(err => {

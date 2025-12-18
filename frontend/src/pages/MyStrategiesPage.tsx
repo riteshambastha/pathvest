@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { apiClient } from '@/services/api';
 
 interface Strategy {
   id: number;
@@ -30,9 +31,8 @@ const MyStrategiesPage: React.FC = () => {
   const loadStrategies = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/strategies');
-      const data = await response.json();
-      setStrategies(data.strategies || []);
+      const response = await apiClient.get('/api/v1/strategies');
+      setStrategies(response.data.strategies || []);
     } catch (err) {
       setError('Failed to load strategies');
       console.error(err);
