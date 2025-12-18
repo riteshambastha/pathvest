@@ -24,7 +24,7 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
     setError(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/backtest/run`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/backtest/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
