@@ -3,7 +3,7 @@ API v1 router
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, portfolios, health, sec, backtest, validation, analytics
+from app.api.v1.endpoints import auth, portfolios, health, sec, backtest, validation, analytics, data
 
 api_router = APIRouter()
 
@@ -14,4 +14,5 @@ api_router.include_router(sec.router, prefix="/sec", tags=["sec-data"])
 api_router.include_router(backtest.router, prefix="/backtest", tags=["backtest"])
 api_router.include_router(validation.router, prefix="/validation", tags=["validation"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(data.router, prefix="/data", tags=["data"])
 
