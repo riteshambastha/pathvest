@@ -27,9 +27,9 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
 
   useEffect(() => {
     // Fetch available institutions
-    apiClient.get('/api/v1/data/sec/institutions')
+    apiClient.get('/api/v1/sec/institutions')
       .then(res => {
-        setInstitutions(res.data.institutions || []);
+        setInstitutions(res.data || []);
         setLoading(false);
       })
       .catch(err => {
