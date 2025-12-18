@@ -40,12 +40,7 @@ class Settings(BaseSettings):
         return v
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",  # Local development
-        "http://localhost:5173",  # Vite dev server
-        "https://frontend-6jqgt75ty-riteshs-projects-9ee311eb.vercel.app",  # Vercel production
-        "https://frontend-delta-sandy-65.vercel.app",  # Previous Vercel deployment
-    ]
+    BACKEND_CORS_ORIGINS: List[str] = []
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
