@@ -24,7 +24,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
 
   useEffect(() => {
     // Fetch available date range from backend
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/data/date-range`)
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/data/date-range`)
       .then((res) => res.json())
       .then((data) => {
         setDateRange(data);

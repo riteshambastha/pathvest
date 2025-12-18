@@ -222,41 +222,34 @@ async def get_institution_details(cik: str):
 async def get_available_date_range():
     """Get the available date range from PostgreSQL data"""
     try:
-        from google.cloud import postgres
-        import os
+        from app.db.session import get_db
+        from sqlalchemy import text
         
-        if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            # Fallback to hardcoded range if PostgreSQL not available
-            return {
-                "min_date": "2019-02-14",
-                "max_date": "2025-12-16",
-                "years_covered": 7,
-                "source": "fallback"
-            }
+        async for db in get_db():
+            query = text("""
+                SELECT 
+                    MIN(filing_date) as min_date,
+                    MAX(filing_date) as max_date
+                FROM filings
+                WHERE filing_date IS NOT NULL
+            """)
+            
+            result = await db.execute(query)
+            row = result.fetchone()
+            
+            if row and row.min_date and row.max_date:
+                return {
+                    "min_date": row.min_date.strftime("%Y-%m-%d"),
+                    "max_date": row.max_date.strftime("%Y-%m-%d"),
+                    "years_covered": row.max_date.year - row.min_date.year + 1,
+                    "source": "postgresql"
+                }
         
-        client = postgres.Client()
-        query = """
-        SELECT 
-            MIN(filing_date) as min_date,
-            MAX(filing_date) as max_date,
-            COUNT(DISTINCT EXTRACT(YEAR FROM filing_date)) as years_covered
-        FROM `test-for-android-notifn.sec_filings.institutional_holdings`
-        """
-        
-        result = client.query(query).result()
-        for row in result:
-            return {
-                "min_date": row.min_date.strftime("%Y-%m-%d") if row.min_date else "2019-02-14",
-                "max_date": row.max_date.strftime("%Y-%m-%d") if row.max_date else "2025-12-16",
-                "years_covered": int(row.years_covered) if row.years_covered else 7,
-                "source": "postgres"
-            }
-        
-        # Fallback if query returns nothing
+        # Fallback if no data
         return {
             "min_date": "2019-02-14",
-            "max_date": "2025-12-16",
-            "years_covered": 7,
+            "max_date": "2024-12-31",
+            "years_covered": 6,
             "source": "fallback"
         }
         
@@ -265,8 +258,8 @@ async def get_available_date_range():
         # Return fallback range
         return {
             "min_date": "2019-02-14",
-            "max_date": "2025-12-16",
-            "years_covered": 7,
+            "max_date": "2024-12-31",
+            "years_covered": 6,
             "source": "fallback_error"
         }
 
