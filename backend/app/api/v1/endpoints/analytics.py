@@ -17,7 +17,7 @@ from app.services.analytics import (
     get_report_exporter
 )
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+router = APIRouter(tags=["Analytics"])
 
 # Mock backtest results cache (would query from database in production)
 backtest_results_cache = {}

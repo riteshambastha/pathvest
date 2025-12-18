@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 # Import worker (to be created)
 # from lean_engine.worker.backtest_worker import BacktestWorker
 
-router = APIRouter(prefix="/backtest", tags=["Backtest"])
+router = APIRouter(tags=["Backtest"])
 
 
 # In-memory storage for development (would use Redis/DB in production)

@@ -33,7 +33,7 @@ from app.services.validation import (
     get_stress_tester
 )
 
-router = APIRouter(prefix="/validation", tags=["Validation"])
+router = APIRouter(tags=["Validation"])
 
 # In-memory storage (would use Redis/DB in production)
 validation_jobs = {}
