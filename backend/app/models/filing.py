@@ -2,8 +2,8 @@
 Filing database model
 """
 
-from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, Float
+from datetime import datetime, date
+from sqlalchemy import String, Integer, DateTime, Date, Text, ForeignKey, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List
 from app.db.base import Base
@@ -19,6 +19,7 @@ class Filing(Base):
     accession_no: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     form_type: Mapped[str] = mapped_column(String(20), nullable=False)
     filed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    filing_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)  # Date-only version for queries
     period_of_report: Mapped[str] = mapped_column(String(20), nullable=True)
     
     # Filing URLs

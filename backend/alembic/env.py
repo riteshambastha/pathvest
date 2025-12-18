@@ -18,7 +18,14 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from app.db.base import Base
-from app.models import User, Portfolio
+# Import ALL models so Alembic can detect them
+from app.models import (
+    User, 
+    Portfolio, 
+    Institution, 
+    Filing, 
+    Holding
+)
 from app.core.config import settings
 
 # this is the Alembic Config object
