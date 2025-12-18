@@ -1,4 +1,12 @@
-# Quick Fix for Render Deployment Error
+ alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+/root/.local/lib/python3.11/site-packages/alembic/script/revision.py:214: UserWarning: Revision f1a2b3c4d5e6 is present more than once
+  util.warn(
+ERROR [alembic.util.messaging] Multiple head revisions are present for given argument 'head'; please specify a specific target revision, '<branchname>@head' to narrow to a specific head, or 'heads' for all heads
+  FAILED: Multiple head revisions are present for given argument 'head'; please specify a specific target revision,
+  '<branchname>@head' to narrow to a specific head, or 'heads' for all heads
+root@srv-d51eqs63jp1c739ve47g-6d845855d8-z6p94:/app# # Quick Fix for Render Deployment Error
 
 ## ✅ Problem Solved
 
@@ -37,7 +45,15 @@ git push origin main
 
 ```bash
 cd backend
-alembic upgrade head
+
+# First, remove the duplicate migration file
+rm -f alembic/versions/f1a2b3c4d5e6_add_strategies_sqlite.py
+
+# Check current migration state
+alembic current
+
+# Now run the migration to the specific revision
+alembic upgrade 483ddf2ccfc5
 ```
 
 **Expected output**:
@@ -49,11 +65,18 @@ INFO  [alembic.runtime.migration] Running upgrade f1a2b3c4d5e6 -> 483ddf2ccfc5, 
 
 ## ✅ Test It Works
 
+**From your local terminal** (not Render Shell):
+
 ```bash
 # Replace with your Render URL
 curl https://pathvest-backend.onrender.com/api/v1/data/date-range
 
 # Should return JSON with date range (no errors!)
+```
+
+Or open in your browser:
+```
+https://pathvest-backend.onrender.com/api/v1/data/date-range
 ```
 
 ---
