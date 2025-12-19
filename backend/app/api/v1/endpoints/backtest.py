@@ -15,7 +15,7 @@ from app.schemas.backtest_request import BacktestRequest
 from app.schemas.backtest_response import BacktestResponse, BacktestStatus
 from app.db.session import get_db
 from sqlalchemy.orm import Session
-from app.services.strategy_db import save_strategy, save_backtest, update_backtest_results
+from app.services.strategy_db import save_strategy, save_backtest, update_backtest_results, get_backtest
 
 # Import worker (to be created)
 # from lean_engine.worker.backtest_worker import BacktestWorker
@@ -156,23 +156,38 @@ async def get_backtest_status(backtest_id: str):
     """
     Get the status of a running backtest
     
+    Checks both in-memory storage and database
+    
     Args:
         backtest_id: Backtest identifier
     
     Returns:
         BacktestStatus with current progress
     """
-    if backtest_id not in backtest_jobs:
+    # First check in-memory storage (for running backtests)
+    if backtest_id in backtest_jobs:
+        job = backtest_jobs[backtest_id]
+        return BacktestStatus(
+            backtest_id=backtest_id,
+            status=job['status'],
+            progress_pct=job.get('progress_pct'),
+            message=job.get('message'),
+            estimated_completion_seconds=job.get('estimated_completion_seconds')
+        )
+    
+    # If not in memory, check database
+    db_result = get_backtest(backtest_id)
+    
+    if not db_result:
         raise HTTPException(status_code=404, detail="Backtest not found")
     
-    job = backtest_jobs[backtest_id]
-    
+    # Return status from database
     return BacktestStatus(
         backtest_id=backtest_id,
-        status=job['status'],
-        progress_pct=job.get('progress_pct'),
-        message=job.get('message'),
-        estimated_completion_seconds=job.get('estimated_completion_seconds')
+        status=db_result.get('status', 'unknown'),
+        progress_pct=100 if db_result.get('status') == 'completed' else 0,
+        message=f"Backtest {db_result.get('status', 'unknown')}",
+        estimated_completion_seconds=None
     )
 
 
@@ -181,44 +196,82 @@ async def get_backtest_results(backtest_id: str):
     """
     Get the results of a completed backtest
     
+    Checks both in-memory storage (for running backtests) and database (for completed ones)
+    
     Args:
         backtest_id: Backtest identifier
     
     Returns:
         BacktestResponse with complete results
     """
-    if backtest_id not in backtest_jobs:
-        raise HTTPException(status_code=404, detail="Backtest not found")
+    # First check in-memory storage (for running/recent backtests)
+    if backtest_id in backtest_jobs:
+        job = backtest_jobs[backtest_id]
+        
+        if job['status'] == 'running':
+            raise HTTPException(
+                status_code=409,
+                detail=f"Backtest still running ({job.get('progress_pct', 0):.1f}% complete)"
+            )
+        
+        if job['status'] == 'failed':
+            raise HTTPException(
+                status_code=500,
+                detail=f"Backtest failed: {job.get('message', 'Unknown error')}"
+            )
+        
+        if job['status'] == 'completed':
+            result = job.get('result')
+            if result:
+                return result
     
-    job = backtest_jobs[backtest_id]
+    # If not in memory, check the database (for completed backtests)
+    db_result = get_backtest(backtest_id)
     
-    if job['status'] == 'running':
+    if not db_result:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Backtest {backtest_id} not found. It may have been deleted or never existed."
+        )
+    
+    # Check if backtest is still running/queued
+    if db_result.get('status') in ['queued', 'running']:
         raise HTTPException(
             status_code=409,
-            detail=f"Backtest still running ({job.get('progress_pct', 0):.1f}% complete)"
+            detail=f"Backtest still {db_result.get('status')}"
         )
     
-    if job['status'] == 'failed':
+    if db_result.get('status') == 'failed':
         raise HTTPException(
             status_code=500,
-            detail=f"Backtest failed: {job.get('message', 'Unknown error')}"
+            detail="Backtest failed"
         )
     
-    if job['status'] != 'completed':
-        raise HTTPException(
-            status_code=400,
-            detail=f"Backtest in unexpected state: {job['status']}"
-        )
-    
-    result = job.get('result')
-    
-    if not result:
-        raise HTTPException(
-            status_code=500,
-            detail="Backtest completed but no results found"
-        )
-    
-    return result
+    # Convert database result to BacktestResponse format
+    return {
+        "backtest_id": db_result["backtest_id"],
+        "strategy_id": db_result["strategy_id"],
+        "status": db_result["status"],
+        "summary": {
+            "total_return": db_result.get("total_return", 0.0),
+            "sharpe_ratio": db_result.get("sharpe_ratio", 0.0),
+            "max_drawdown": db_result.get("max_drawdown", 0.0),
+            "total_trades": len(db_result.get("trades", [])),
+            "win_rate": db_result.get("win_rate", 0.0),
+            "alpha": db_result.get("alpha", 0.0),
+            "beta": db_result.get("beta", 1.0),
+        },
+        "equity_curve": db_result.get("equity_curve", {}),
+        "trades": db_result.get("trades", []),
+        "institutional_signals": db_result.get("institutional_signals", {}),
+        "real_market_data": db_result.get("real_market_data", {}),
+        "execution_time_seconds": db_result.get("execution_time_seconds", 0),
+        "stocks_analyzed": db_result.get("stocks_analyzed", []),
+        "start_date": db_result.get("start_date"),
+        "end_date": db_result.get("end_date"),
+        "initial_capital": db_result.get("initial_capital", 100000),
+        "final_value": db_result.get("final_value", 100000),
+    }
 
 
 @router.delete("/{backtest_id}")
