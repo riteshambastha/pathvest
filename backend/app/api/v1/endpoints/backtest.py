@@ -605,10 +605,10 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
             # Query REAL holdings
             query = text("""
                 SELECT DISTINCT h.ticker
-                FROM sec_holdings_13f h
-                JOIN sec_filings_13f f ON h.filing_id = f.filing_id
+                FROM holdings h
+                JOIN filings f ON h.filing_id = f.id
                 WHERE f.cik = ANY(:ciks)
-                    AND f.filing_date BETWEEN :lookback_date AND :end_date
+                    AND DATE(f.filed_at) BETWEEN :lookback_date AND :end_date
                     AND h.ticker IS NOT NULL
                     AND h.ticker != ''
                 LIMIT 50
@@ -624,10 +624,10 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
             
             # Count REAL filings
             filing_query = text("""
-                SELECT COUNT(DISTINCT filing_id)
-                FROM sec_filings_13f
+                SELECT COUNT(DISTINCT id)
+                FROM filings
                 WHERE cik = ANY(:ciks)
-                    AND filing_date BETWEEN :lookback_date AND :end_date
+                    AND DATE(filed_at) BETWEEN :lookback_date AND :end_date
             """)
             
             filing_result = db.execute(filing_query, {
