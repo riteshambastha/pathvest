@@ -76,6 +76,10 @@ class InsiderFilters(BaseModel):
 
 class SubUniverseFilters(BaseModel):
     """Complete sub-universe filtering configuration"""
+    selected_institutions: List[str] = Field(
+        default_factory=list,
+        description="List of institution CIKs to track"
+    )
     investor: InvestorFilters = Field(default_factory=InvestorFilters)
     transaction: TransactionFilters = Field(default_factory=TransactionFilters)
     insider: InsiderFilters = Field(default_factory=InsiderFilters)
