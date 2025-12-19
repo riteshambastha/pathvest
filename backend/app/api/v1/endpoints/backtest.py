@@ -334,18 +334,47 @@ async def get_backtest_results(backtest_id: str):
         )
     
     # Convert database result to BacktestResponse format
+    # Must include ALL required fields from BacktestSummary schema
+    
+    # Check if summary_metrics exists (new format) or use individual fields (old format)
+    summary_metrics = db_result.get("summary_metrics", {})
+    
     return {
         "backtest_id": db_result["backtest_id"],
         "strategy_id": db_result["strategy_id"],
         "status": db_result["status"],
+        "strategy_name": db_result.get("strategy_name", ""),
         "summary": {
-            "total_return": db_result.get("total_return", 0.0),
-            "sharpe_ratio": db_result.get("sharpe_ratio", 0.0),
-            "max_drawdown": db_result.get("max_drawdown", 0.0),
-            "total_trades": len(db_result.get("trades", [])),
-            "win_rate": db_result.get("win_rate", 0.0),
-            "alpha": db_result.get("alpha", 0.0),
-            "beta": db_result.get("beta", 1.0),
+            # Core metrics (prefer summary_metrics, fallback to individual fields)
+            "total_return": summary_metrics.get("total_return", db_result.get("total_return", 0.0)),
+            "cagr": summary_metrics.get("cagr", db_result.get("cagr", 0.0)),
+            "volatility": summary_metrics.get("volatility", db_result.get("volatility", 0.0)),
+            "sharpe_ratio": summary_metrics.get("sharpe_ratio", db_result.get("sharpe_ratio", 0.0)),
+            "sortino_ratio": summary_metrics.get("sortino_ratio", db_result.get("sortino_ratio", 0.0)),
+            "max_drawdown": summary_metrics.get("max_drawdown", db_result.get("max_drawdown", 0.0)),
+            
+            # Risk metrics
+            "romad": summary_metrics.get("romad", db_result.get("romad", 0.0)),
+            "var_95": summary_metrics.get("var_95", db_result.get("var_95", 0.0)),
+            "cvar_95": summary_metrics.get("cvar_95", db_result.get("cvar_95", 0.0)),
+            
+            # Performance vs benchmark
+            "alpha": summary_metrics.get("alpha", db_result.get("alpha", 0.0)),
+            "beta": summary_metrics.get("beta", db_result.get("beta", 1.0)),
+            "information_ratio": summary_metrics.get("information_ratio", db_result.get("information_ratio", 0.0)),
+            
+            # Win rates
+            "win_rate_daily": summary_metrics.get("win_rate_daily", db_result.get("win_rate_daily", db_result.get("win_rate", 0.0))),
+            "win_rate_monthly": summary_metrics.get("win_rate_monthly", db_result.get("win_rate_monthly", 0.0)),
+            "win_rate_yearly": summary_metrics.get("win_rate_yearly", db_result.get("win_rate_yearly", 0.0)),
+            
+            # Best/worst
+            "best_day": summary_metrics.get("best_day", db_result.get("best_day", 0.0)),
+            "worst_day": summary_metrics.get("worst_day", db_result.get("worst_day", 0.0)),
+            
+            # Benchmark
+            "benchmark_total_return": summary_metrics.get("benchmark_total_return", db_result.get("benchmark_total_return", 0.0)),
+            "benchmark_cagr": summary_metrics.get("benchmark_cagr", db_result.get("benchmark_cagr", 0.0)),
         },
         "equity_curve": db_result.get("equity_curve", {}),
         "trades": db_result.get("trades", []),
@@ -353,6 +382,8 @@ async def get_backtest_results(backtest_id: str):
         "real_market_data": db_result.get("real_market_data", {}),
         "execution_time_seconds": db_result.get("execution_time_seconds", 0),
         "stocks_analyzed": db_result.get("stocks_analyzed", []),
+        "api_calls_made": db_result.get("api_calls_made", 0),
+        "sec_filings_fetched": db_result.get("sec_filings_fetched", 0),
         "start_date": db_result.get("start_date"),
         "end_date": db_result.get("end_date"),
         "initial_capital": db_result.get("initial_capital", 100000),
