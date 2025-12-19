@@ -234,12 +234,34 @@ async def get_backtest_results(backtest_id: str):
             detail=f"Backtest {backtest_id} not found. It may have been deleted or never existed."
         )
     
-    # Check if backtest is still running/queued
+    # Check if backtest is orphaned (stuck in running/queued but not in memory)
+    # This happens when server restarts and background tasks are lost
     if db_result.get('status') in ['queued', 'running']:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Backtest still {db_result.get('status')}"
-        )
+        # Check how long it's been since creation (orphaned if > 10 minutes)
+        from datetime import datetime, timedelta
+        created_at = db_result.get('created_at')
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+        
+        time_elapsed = datetime.utcnow() - created_at
+        
+        # If running for more than 10 minutes without being in memory, it's orphaned
+        if time_elapsed > timedelta(minutes=10):
+            # Mark as failed in database
+            update_backtest_results(backtest_id, {
+                "status": "failed",
+                "execution_time_seconds": 0,
+            })
+            raise HTTPException(
+                status_code=500,
+                detail="Backtest was interrupted (likely due to server restart). Please run it again."
+            )
+        else:
+            # Still legitimately running
+            raise HTTPException(
+                status_code=409,
+                detail=f"Backtest still {db_result.get('status')}"
+            )
     
     if db_result.get('status') == 'failed':
         raise HTTPException(
