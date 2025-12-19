@@ -1,19 +1,26 @@
-# Multi-stage build for PathVest Backend
+# Multi-stage build for PathVest Backend with LEAN Engine
 FROM python:3.11-slim as builder
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including Docker CLI
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Install LEAN CLI (QuantConnect)
+RUN pip install --no-cache-dir --user lean
 
 # Final stage
 FROM python:3.11-slim
@@ -21,15 +28,17 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install runtime dependencies only
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     libpq5 \
+    curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder
 COPY --from=builder /root/.local /root/.local
 
-# Copy application code
+# Copy application code (includes lean_engine folder)
 COPY . .
 
 # Make sure scripts in .local are usable
@@ -38,6 +47,7 @@ ENV PATH=/root/.local/bin:$PATH
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Expose port
 EXPOSE 8000
