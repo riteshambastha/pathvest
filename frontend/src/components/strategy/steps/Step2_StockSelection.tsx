@@ -14,9 +14,8 @@ interface StepProps {
 interface Institution {
   cik: string;
   name: string;
-  aum: number;
   description: string;
-  category: string;
+  is_popular?: boolean;
 }
 
 const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
@@ -122,11 +121,13 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
                       </div>
                     </div>
                     <div className="mt-2 flex items-center space-x-3 text-xs">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                        {inst.category}
-                      </span>
-                      <span className="text-gray-600">
-                        AUM: ${(inst.aum / 1e9).toFixed(1)}B
+                      {inst.is_popular && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                          Popular
+                        </span>
+                      )}
+                      <span className="text-gray-500">
+                        CIK: {inst.cik}
                       </span>
                     </div>
                   </div>
