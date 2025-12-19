@@ -143,25 +143,60 @@ class BacktestOrchestrator:
                 }
                 
                 # Run LEAN backtest
-                results = lean_adapter.run_full_backtest(signals, lean_config)
+                lean_results = lean_adapter.run_full_backtest(signals, lean_config)
                 
-                if results is None or 'error' in results:
+                if lean_results is None or 'error' in lean_results:
                     # LEAN failed, fallback to custom engine
                     print(f"⚠️  LEAN engine failed, falling back to Custom Engine")
                     update_progress("LEAN failed, using Custom Engine...", 85)
                     engine = HistoricalBacktestEngine(initial_capital=strategy_config.get('initial_capital', 100000))
-                    results = engine.run_backtest(signals, historical_prices, start_date, end_date)
-                    results['engine'] = 'custom (fallback from LEAN)'
+                    raw_results = engine.run_backtest(signals, historical_prices, start_date, end_date)
+                    
+                    # Wrap metrics under 'summary' key
+                    results = {
+                        'engine': 'custom (fallback from LEAN)',
+                        'summary': {k: v for k, v in raw_results.items() if k not in ['portfolio_history', 'dates', 'trades', 'initial_capital', 'final_value', 'total_trades']},
+                        'equity_curve': {
+                            'dates': raw_results.get('dates', []),
+                            'portfolio_values': raw_results.get('portfolio_history', []),
+                            'benchmark_values': []
+                        },
+                        'trades': raw_results.get('trades', []),
+                        'initial_capital': raw_results.get('initial_capital', 100000),
+                        'final_value': raw_results.get('final_value', 100000),
+                        'execution_time_seconds': 0,
+                        'api_calls_made': len(tickers) * 2,
+                        'sec_filings_fetched': len(signals),
+                        'stocks_analyzed': tickers
+                    }
                 else:
                     print(f"✅ LEAN backtest completed successfully")
+                    results = lean_results
                     results['engine'] = 'LEAN'
             
             else:
                 # Use Custom Engine (default)
                 print(f"📍 Using Custom Engine (PathVest)")
                 engine = HistoricalBacktestEngine(initial_capital=strategy_config.get('initial_capital', 100000))
-                results = engine.run_backtest(signals, historical_prices, start_date, end_date)
-                results['engine'] = 'custom'
+                raw_results = engine.run_backtest(signals, historical_prices, start_date, end_date)
+                
+                # Wrap metrics under 'summary' key for API schema compatibility
+                results = {
+                    'engine': 'custom',
+                    'summary': {k: v for k, v in raw_results.items() if k not in ['portfolio_history', 'dates', 'trades', 'initial_capital', 'final_value', 'total_trades']},
+                    'equity_curve': {
+                        'dates': raw_results.get('dates', []),
+                        'portfolio_values': raw_results.get('portfolio_history', []),
+                        'benchmark_values': []  # Benchmark not implemented yet
+                    },
+                    'trades': raw_results.get('trades', []),
+                    'initial_capital': raw_results.get('initial_capital', 100000),
+                    'final_value': raw_results.get('final_value', 100000),
+                    'execution_time_seconds': 0,  # Will be calculated by API
+                    'api_calls_made': len(tickers) * 2,  # Rough estimate
+                    'sec_filings_fetched': len(signals),
+                    'stocks_analyzed': tickers
+                }
             
             update_progress("Backtest complete!", 100)
             

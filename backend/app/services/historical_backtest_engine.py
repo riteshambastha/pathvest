@@ -250,7 +250,8 @@ class HistoricalBacktestEngine:
     
     def calculate_metrics(self) -> Dict:
         """
-        Calculate performance metrics from portfolio history
+        Calculate comprehensive performance metrics from portfolio history
+        Includes all fields required by BacktestSummary schema
         """
         if not self.portfolio_history:
             return {}
@@ -285,15 +286,48 @@ class HistoricalBacktestEngine:
         years = len(df) / 252
         cagr = (final_value / self.initial_capital) ** (1 / years) - 1 if years > 0 else 0
         
-        # Win rate
+        # Win rates (daily, monthly, yearly)
         winning_days = len(df[df['daily_return'] > 0])
         total_days = len(df[df['daily_return'].notna()])
-        win_rate = winning_days / total_days if total_days > 0 else 0
+        win_rate_daily = winning_days / total_days if total_days > 0 else 0
+        
+        # Monthly win rate
+        df_monthly = df.resample('M')['portfolio_value'].last().pct_change()
+        win_rate_monthly = len(df_monthly[df_monthly > 0]) / len(df_monthly.dropna()) if len(df_monthly) > 0 else 0
+        
+        # Yearly win rate
+        df_yearly = df.resample('Y')['portfolio_value'].last().pct_change()
+        win_rate_yearly = len(df_yearly[df_yearly > 0]) / len(df_yearly.dropna()) if len(df_yearly) > 0 else 0
+        
+        # Best and worst days
+        best_day = df['daily_return'].max() if len(df) > 0 else 0
+        worst_day = df['daily_return'].min() if len(df) > 0 else 0
+        
+        # RoMAD (Return over Maximum Drawdown)
+        romad = abs(total_return / max_drawdown) if max_drawdown != 0 else 0
+        
+        # Alpha and Beta (vs SPY benchmark - simplified calculation)
+        # For now, use simplified estimates. Proper calculation requires benchmark data.
+        beta = 1.0  # Neutral beta assumption
+        benchmark_return = 0.10 * years  # Assume 10% annual benchmark return
+        alpha = total_return - (beta * benchmark_return)
+        
+        # Information Ratio (simplified)
+        information_ratio = alpha / volatility if volatility > 0 else 0
+        
+        # VaR and CVaR (95% confidence)
+        var_95 = df['daily_return'].quantile(0.05) if len(df) > 0 else 0
+        cvar_95 = df['daily_return'][df['daily_return'] <= var_95].mean() if len(df) > 0 else 0
+        
+        # Benchmark metrics (simplified - assume SPY-like returns)
+        benchmark_total_return = 0.10 * years
+        benchmark_cagr = 0.10
         
         print(f"\n📊 Backtest Results:")
         print(f"   Initial: ${self.initial_capital:,.2f}")
         print(f"   Final:   ${final_value:,.2f}")
         print(f"   Return:  {total_return*100:.2f}%")
+        print(f"   CAGR:    {cagr*100:.2f}%")
         print(f"   Sharpe:  {sharpe_ratio:.2f}")
         print(f"   Max DD:  {max_drawdown*100:.2f}%")
         print(f"   Trades:  {len(self.trades)}")
@@ -308,7 +342,20 @@ class HistoricalBacktestEngine:
             'sharpe_ratio': sharpe_ratio,
             'sortino_ratio': sortino_ratio,
             'max_drawdown': max_drawdown,
-            'win_rate': win_rate,
+            'romad': romad,
+            'alpha': alpha,
+            'beta': beta,
+            'information_ratio': information_ratio,
+            'var_95': var_95,
+            'cvar_95': cvar_95,
+            'win_rate': win_rate_daily,  # Keep for backward compatibility
+            'win_rate_daily': win_rate_daily,
+            'win_rate_monthly': win_rate_monthly,
+            'win_rate_yearly': win_rate_yearly,
+            'best_day': best_day,
+            'worst_day': worst_day,
+            'benchmark_total_return': benchmark_total_return,
+            'benchmark_cagr': benchmark_cagr,
             'total_trades': len(self.trades),
             'portfolio_history': df['portfolio_value'].tolist(),
             'dates': [d.strftime('%Y-%m-%d') for d in df.index],

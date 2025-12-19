@@ -782,7 +782,7 @@ def _convert_orchestrator_result_to_response(backtest_id: str, request: Backtest
         information_ratio=summary_data.get('information_ratio', 0.0),
         var_95=summary_data.get('var_95', 0.0),
         cvar_95=summary_data.get('cvar_95', 0.0),
-        win_rate_daily=summary_data.get('win_rate', 0.0),
+        win_rate_daily=summary_data.get('win_rate_daily', summary_data.get('win_rate', 0.0)),  # Fallback to win_rate for compatibility
         win_rate_monthly=summary_data.get('win_rate_monthly', 0.0),
         win_rate_yearly=summary_data.get('win_rate_yearly', 0.0),
         best_day=summary_data.get('best_day', 0.0),
