@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime, ForeignKey, desc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.dialects.postgresql import ARRAY, JSON
 
 # Import SEC service for institution name lookup
 sys.path.insert(0, os.path.dirname(__file__))
@@ -19,6 +20,9 @@ _institution_name_cache = {}
 
 # Database URL
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./pathvest_local.db")
+
+# Determine if we're using PostgreSQL or SQLite
+is_postgres = DATABASE_URL.startswith("postgresql")
 
 # Create engine
 engine = create_engine(
@@ -39,8 +43,8 @@ class Strategy(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    strategy_config = Column(Text, nullable=False)
-    selected_institutions = Column(Text, nullable=True)
+    strategy_config = Column(JSON if is_postgres else Text, nullable=False)
+    selected_institutions = Column(ARRAY(String) if is_postgres else Text, nullable=True)
     status = Column(String(50), nullable=False, default="draft")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -102,10 +106,18 @@ def save_strategy(name: str, config: dict, selected_institutions: list = None) -
     """Save a new strategy to the database"""
     db = SessionLocal()
     try:
+        # For PostgreSQL: pass config as dict (will be stored as JSON)
+        # For SQLite: convert to JSON string
+        config_value = config if is_postgres else json.dumps(config)
+        
+        # For PostgreSQL: pass institutions as list (will be stored as ARRAY)
+        # For SQLite: convert to JSON string
+        institutions_value = (selected_institutions or []) if is_postgres else json.dumps(selected_institutions or [])
+        
         strategy = Strategy(
             name=name,
-            strategy_config=json.dumps(config),
-            selected_institutions=json.dumps(selected_institutions or []),
+            strategy_config=config_value,
+            selected_institutions=institutions_value,
             status="active"
         )
         db.add(strategy)
