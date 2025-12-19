@@ -8,35 +8,34 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import pandas as pd
-from google.cloud import bigquery
 import os
 
 from app.services.historical_backtest_engine import HistoricalBacktestEngine
-from app.services.lean_adapter import LEANAdapter
+from app.services.sec_edgar_service import SECEdgarService
+from app.services.alphavantage_service import AlphaVantageService
+# LEANAdapter is optional
+try:
+    from app.services.lean_adapter import LEANAdapter
+    LEAN_ADAPTER_AVAILABLE = True
+except ImportError:
+    LEAN_ADAPTER_AVAILABLE = False
+    LEANAdapter = None
 
 
 class BacktestOrchestrator:
     """
     Orchestrates the full backtesting process:
-    1. Fetch SEC filing signals from PostgreSQL
-    2. Fetch historical prices for relevant stocks
+    1. Fetch SEC filing signals from PostgreSQL database
+    2. Fetch historical prices for relevant stocks from AlphaVantage
     3. Run backtest simulation
     4. Return performance metrics
     """
     
     def __init__(self):
-        self.bq_client = None
-        # Load environment variables from .env file if present
-        from dotenv import load_dotenv
-        load_dotenv()
-        
-        if os.getenv('ENABLE_BIGQUERY') == 'True' and os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
-            try:
-                self.bq_client = bigquery.Client()
-                print("✅ BigQuery client initialized")
-            except Exception as e:
-                print(f"⚠️  BigQuery initialization failed: {e}")
-                self.bq_client = None
+        # Initialize services
+        self.sec_service = SECEdgarService()
+        self.alphavantage_service = AlphaVantageService()
+        print("✅ Backtest Orchestrator initialized with real data services")
     
     async def run_strategy_backtest(
         self,
@@ -175,104 +174,125 @@ class BacktestOrchestrator:
         strategy_config: Dict
     ) -> List[Dict]:
         """
-        Fetch SEC filing-based trading signals from PostgreSQL
+        Fetch SEC filing-based trading signals from PostgreSQL database
         
         Signal generation logic:
         - Doubling Down: Institution increases position by 50%+
         - New Position: Institution enters a new position (top holdings)
         """
+        from app.services.strategy_db import SessionLocal
+        from sqlalchemy import text
         
-        if not self.bq_client:
-            print("⚠️  PostgreSQL not enabled, returning empty signals")
+        if not selected_institutions:
+            print("⚠️  No institutions selected, returning empty signals")
             return []
         
         signals = []
-        
-        # Query for institutional position changes
-        query = f"""
-        WITH position_changes AS (
-            SELECT 
-                h1.ticker,
-                h1.cik,
-                h1.filing_date,
-                h1.shares_held as current_shares,
-                h1.market_value as current_value,
-                LAG(h1.shares_held) OVER (
-                    PARTITION BY h1.ticker, h1.cik 
-                    ORDER BY h1.filing_date
-                ) as previous_shares,
-                LAG(h1.market_value) OVER (
-                    PARTITION BY h1.ticker, h1.cik 
-                    ORDER BY h1.filing_date
-                ) as previous_value
-            FROM `{os.getenv('GCP_PROJECT_ID')}.{os.getenv('BIGQUERY_DATASET_SEC')}.institutional_holdings` h1
-            WHERE h1.filing_date BETWEEN '{start_date}' AND '{end_date}'
-                AND h1.cik IN ({','.join([f"'{cik}'" for cik in selected_institutions])})
-        )
-        SELECT 
-            ticker,
-            cik,
-            filing_date,
-            current_shares,
-            previous_shares,
-            current_value,
-            previous_value,
-            CASE 
-                WHEN previous_shares IS NULL THEN 'NEW_POSITION'
-                WHEN current_shares > previous_shares * 1.5 THEN 'DOUBLING_DOWN'
-                WHEN current_shares < previous_shares * 0.5 THEN 'REDUCING'
-                ELSE 'HOLDING'
-            END as signal_type,
-            CASE 
-                WHEN previous_shares IS NULL THEN 1.0
-                WHEN current_shares > previous_shares THEN (current_shares - previous_shares) / previous_shares
-                ELSE 0.0
-            END as signal_strength
-        FROM position_changes
-        WHERE filing_date IS NOT NULL
-        ORDER BY filing_date ASC
-        """
+        db = SessionLocal()
         
         try:
-            print(f"\n🔍 Executing PostgreSQL query...")
-            print(f"   Institutions: {selected_institutions}")
+            print(f"\n🔍 Fetching SEC signals from database...")
+            print(f"   Institutions: {selected_institutions[:3]}... ({len(selected_institutions)} total)")
             print(f"   Date range: {start_date} to {end_date}")
-            # print(f"\n   SQL:\n{query}\n")  # Uncomment to debug SQL
             
-            query_job = self.bq_client.query(query)
-            results = query_job.result()
+            # Query holdings from database for selected institutions
+            query = text("""
+                SELECT 
+                    h.ticker_symbol as ticker,
+                    h.cusip,
+                    f.cik,
+                    f.period_of_report as filing_date,
+                    h.value as market_value,
+                    h.shares as shares_held
+                FROM holdings h
+                JOIN filings f ON h.filing_id = f.id
+                JOIN institutions i ON f.institution_id = i.id
+                WHERE i.cik = ANY(:ciks)
+                    AND f.period_of_report >= :start_date
+                    AND f.period_of_report <= :end_date
+                    AND h.ticker_symbol IS NOT NULL
+                    AND h.ticker_symbol != ''
+                ORDER BY f.period_of_report, h.value DESC
+            """)
             
-            for row in results:
-                # Only create BUY signals for NEW_POSITION and DOUBLING_DOWN
-                if row.signal_type in ['NEW_POSITION', 'DOUBLING_DOWN']:
-                    signals.append({
-                        'date': row.filing_date.strftime('%Y-%m-%d'),
-                        'ticker': row.ticker,
-                        'action': 'BUY',
-                        'signal_type': row.signal_type,
-                        'signal_strength': min(float(row.signal_strength), 1.0),
-                        'institution_cik': row.cik,
-                        'shares_change': int(row.current_shares - (row.previous_shares or 0))
-                    })
+            result = db.execute(query, {
+                "ciks": selected_institutions,
+                "start_date": start_date,
+                "end_date": end_date
+            })
+            
+            # Group holdings by ticker and cik to detect position changes
+            holdings_by_position = {}
+            for row in result:
+                key = (row.ticker, row.cik)
+                if key not in holdings_by_position:
+                    holdings_by_position[key] = []
+                holdings_by_position[key].append({
+                    'date': row.filing_date.strftime('%Y-%m-%d') if hasattr(row.filing_date, 'strftime') else str(row.filing_date),
+                    'ticker': row.ticker,
+                    'cik': row.cik,
+                    'shares': float(row.shares_held or 0),
+                    'value': float(row.market_value or 0)
+                })
+            
+            # Analyze position changes to generate signals
+            for (ticker, cik), holdings in holdings_by_position.items():
+                holdings = sorted(holdings, key=lambda x: x['date'])
                 
-                # Create SELL signals for REDUCING
-                elif row.signal_type == 'REDUCING':
-                    signals.append({
-                        'date': row.filing_date.strftime('%Y-%m-%d'),
-                        'ticker': row.ticker,
-                        'action': 'SELL',
-                        'signal_type': row.signal_type,
-                        'signal_strength': 1.0,
-                        'institution_cik': row.cik,
-                        'shares_change': int(row.current_shares - row.previous_shares)
-                    })
+                for i in range(len(holdings)):
+                    current = holdings[i]
+                    
+                    if i == 0:
+                        # First filing - new position
+                        if current['shares'] > 0:
+                            signals.append({
+                                'date': current['date'],
+                                'ticker': ticker,
+                                'action': 'BUY',
+                                'signal_type': 'NEW_POSITION',
+                                'signal_strength': 1.0,
+                                'institution_cik': cik,
+                                'shares_change': int(current['shares'])
+                            })
+                    else:
+                        previous = holdings[i-1]
+                        
+                        if previous['shares'] > 0:
+                            change_pct = (current['shares'] - previous['shares']) / previous['shares']
+                            
+                            # Doubling down - increased position by 50%+
+                            if change_pct >= 0.5:
+                                signals.append({
+                                    'date': current['date'],
+                                    'ticker': ticker,
+                                    'action': 'BUY',
+                                    'signal_type': 'DOUBLING_DOWN',
+                                    'signal_strength': min(change_pct, 1.0),
+                                    'institution_cik': cik,
+                                    'shares_change': int(current['shares'] - previous['shares'])
+                                })
+                            # Reducing - decreased position by 50%+
+                            elif change_pct <= -0.5:
+                                signals.append({
+                                    'date': current['date'],
+                                    'ticker': ticker,
+                                    'action': 'SELL',
+                                    'signal_type': 'REDUCING',
+                                    'signal_strength': min(abs(change_pct), 1.0),
+                                    'institution_cik': cik,
+                                    'shares_change': int(current['shares'] - previous['shares'])
+                                })
             
-            print(f"✅ Found {len(signals)} signals from PostgreSQL")
-            return signals
+            print(f"✅ Found {len(signals)} trading signals from {len(holdings_by_position)} positions")
             
         except Exception as e:
-            print(f"❌ Error fetching signals from PostgreSQL: {e}")
-            return []
+            print(f"❌ Error fetching SEC signals: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            db.close()
+        
+        return signals
     
     async def fetch_historical_prices_batch(
         self,
