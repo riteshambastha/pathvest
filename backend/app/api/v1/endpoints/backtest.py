@@ -21,8 +21,13 @@ from app.services.strategy_db import save_strategy, save_backtest, update_backte
 try:
     from lean_engine.worker.backtest_worker import get_backtest_worker
     LEAN_AVAILABLE = True
-except ImportError:
-    print("⚠️ LEAN worker not available, will use custom backtest engine")
+    print("✅ LEAN worker available")
+except ImportError as e:
+    print(f"⚠️ LEAN worker not available: {e}")
+    LEAN_AVAILABLE = False
+    get_backtest_worker = None
+except Exception as e:
+    print(f"⚠️ LEAN worker error: {e}")
     LEAN_AVAILABLE = False
     get_backtest_worker = None
 
@@ -30,8 +35,15 @@ except ImportError:
 try:
     from app.services.backtest_orchestrator import BacktestOrchestrator
     CUSTOM_ENGINE_AVAILABLE = True
-except ImportError:
-    print("⚠️ Custom backtest engine not available")
+    print("✅ Custom backtest engine available")
+except ImportError as e:
+    print(f"⚠️ Custom backtest engine import failed: {e}")
+    CUSTOM_ENGINE_AVAILABLE = False
+    BacktestOrchestrator = None
+except Exception as e:
+    print(f"⚠️ Custom backtest engine error: {e}")
+    import traceback
+    traceback.print_exc()
     CUSTOM_ENGINE_AVAILABLE = False
     BacktestOrchestrator = None
 

@@ -10,9 +10,25 @@ from typing import Dict, List, Optional
 import pandas as pd
 import os
 
-from app.services.historical_backtest_engine import HistoricalBacktestEngine
-from app.services.sec_edgar_service import SECEdgarService
-from app.services.alphavantage_service import AlphaVantageService
+# Import services with error handling
+try:
+    from app.services.historical_backtest_engine import HistoricalBacktestEngine
+except ImportError as e:
+    print(f"⚠️ Could not import HistoricalBacktestEngine: {e}")
+    HistoricalBacktestEngine = None
+
+try:
+    from app.services.sec_edgar_service import SECEdgarService
+except ImportError as e:
+    print(f"⚠️ Could not import SECEdgarService: {e}")
+    SECEdgarService = None
+
+try:
+    from app.services.alphavantage_service import AlphaVantageService
+except ImportError as e:
+    print(f"⚠️ Could not import AlphaVantageService: {e}")
+    AlphaVantageService = None
+
 # LEANAdapter is optional
 try:
     from app.services.lean_adapter import LEANAdapter
@@ -33,6 +49,9 @@ class BacktestOrchestrator:
     
     def __init__(self):
         # Initialize services
+        if SECEdgarService is None or AlphaVantageService is None:
+            raise ImportError("Required services (SEC or AlphaVantage) not available")
+        
         self.sec_service = SECEdgarService()
         self.alphavantage_service = AlphaVantageService()
         print("✅ Backtest Orchestrator initialized with real data services")
