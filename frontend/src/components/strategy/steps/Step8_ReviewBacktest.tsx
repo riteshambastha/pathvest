@@ -24,6 +24,10 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
     setError(null);
 
     try {
+      // Log the config being sent for debugging
+      console.log('🚀 Submitting backtest with config:', JSON.stringify(config, null, 2));
+      console.log('📊 Selected institutions:', config.sub_universe_filters?.selected_institutions || config.stock_selection?.selected_institutions || []);
+      
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/backtest/run`, {
         method: 'POST',
         headers: {
@@ -33,17 +37,20 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit backtest');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to submit backtest');
       }
 
       const data = await response.json();
       const newBacktestId = data.backtest_id;
       
+      console.log('✅ Backtest submitted successfully. ID:', newBacktestId);
+      
       setBacktestId(newBacktestId);
       setIsSubmitting(false);
       setShowSuccessModal(true);
     } catch (err: any) {
-      console.error('Error submitting backtest:', err);
+      console.error('❌ Error submitting backtest:', err);
       setError(err.message || 'Failed to start backtest');
       setIsSubmitting(false);
     }

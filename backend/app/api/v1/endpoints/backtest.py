@@ -127,8 +127,16 @@ async def run_backtest(
         # 3. Directly in config
         elif 'selected_institutions' in config_dict:
             selected_institutions = config_dict['selected_institutions']
+        else:
+            selected_institutions = []
         
+        print(f"📊 Backtest {backtest_id} - Received config keys: {list(config_dict.keys())}")
         print(f"📊 Extracted {len(selected_institutions)} institutions from config: {selected_institutions}")
+        
+        if not selected_institutions:
+            print("⚠️ WARNING: No institutions found in config!")
+            print(f"⚠️ sub_universe_filters content: {config_dict.get('sub_universe_filters')}")
+            print(f"⚠️ stock_selection content: {config_dict.get('stock_selection')}")
         
         strategy_id = save_strategy(
             name=strategy_name,
