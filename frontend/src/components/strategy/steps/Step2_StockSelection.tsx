@@ -16,6 +16,7 @@ interface Institution {
   name: string;
   description: string;
   is_popular?: boolean;
+  aum?: number;
 }
 
 const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
@@ -124,6 +125,11 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
                       {inst.is_popular && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
                           Popular
+                        </span>
+                      )}
+                      {inst.aum && (
+                        <span className="text-gray-600">
+                          AUM: ${(inst.aum / 1e9).toFixed(1)}B
                         </span>
                       )}
                       <span className="text-gray-500">

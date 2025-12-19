@@ -3,9 +3,9 @@ Institution database model
 """
 
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Text
+from sqlalchemy import String, Integer, DateTime, Text, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
+from typing import List, Optional
 from app.db.base import Base
 
 
@@ -19,6 +19,7 @@ class Institution(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     is_popular: Mapped[bool] = mapped_column(default=False)
+    aum: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, comment="Assets Under Management in USD")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
