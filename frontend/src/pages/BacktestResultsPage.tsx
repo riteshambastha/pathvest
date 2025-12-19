@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   getBacktestResults,
+  getBacktestStatus,
   getAttribution,
   exportTradesCSV,
   exportToExcel,
@@ -36,24 +37,78 @@ const BacktestResultsPage: React.FC = () => {
       const maxAttempts = 150; // 5 minutes total (150 attempts × 2 seconds = 300 seconds)
       let data;
       let lastProgressUpdate = Date.now();
+      let lastProgressPct = 0;
       
       while (attempts < maxAttempts) {
         try {
-          data = await getBacktestResults(backtestId!);
-          
-          // Check if backtest is complete
-          if (data.status === 'completed') {
-            setResults(data);
-            break;
-          } else if (data.status === 'failed') {
-            setError('Backtest failed: ' + (data.error || 'Unknown error'));
-            return;
-          }
-          
-          // If we see progress updates, reset the "stuck" timer
-          if ((data as any).progress) {
-            lastProgressUpdate = Date.now();
-            setResults(data); // Update results with progress info
+          // Try to get results first
+          try {
+            data = await getBacktestResults(backtestId!);
+            
+            // Check if backtest is complete
+            if (data.status === 'completed') {
+              setResults(data);
+              break;
+            } else if (data.status === 'failed') {
+              setError('Backtest failed: ' + (data.error || 'Unknown error'));
+              return;
+            }
+            
+            // If we see progress updates, reset the "stuck" timer
+            if ((data as any).progress) {
+              lastProgressUpdate = Date.now();
+              setResults(data); // Update results with progress info
+            }
+          } catch (err: any) {
+            // If 409 error (still running), get status for progress
+            if (err?.response?.status === 409) {
+              try {
+                const status = await getBacktestStatus(backtestId!);
+                
+                // Convert status to results format with progress
+                const progressData = {
+                  backtest_id: status.backtest_id,
+                  status: status.status,
+                  progress: {
+                    percent: status.progress_pct || 0,
+                    message: status.message || 'Processing backtest...',
+                    stage: status.status === 'running' ? 'processing' : status.status,
+                    details: status.message ? [status.message] : [],
+                    current_stock: null,
+                    stocks_completed: [],
+                    institutions_analyzed: []
+                  }
+                };
+                
+                // Check if progress has changed
+                if (status.progress_pct && status.progress_pct !== lastProgressPct) {
+                  lastProgressUpdate = Date.now();
+                  lastProgressPct = status.progress_pct;
+                }
+                
+                setResults(progressData as any);
+                
+                // If completed or failed, break
+                if (status.status === 'completed') {
+                  // Try to get final results
+                  try {
+                    data = await getBacktestResults(backtestId!);
+                    setResults(data);
+                    break;
+                  } catch (finalErr) {
+                    // If still can't get results, continue polling
+                  }
+                } else if (status.status === 'failed') {
+                  setError('Backtest failed: ' + (status.message || 'Unknown error'));
+                  return;
+                }
+              } catch (statusErr) {
+                console.error('Error getting backtest status:', statusErr);
+              }
+            } else {
+              // Other error, log and continue
+              console.error('Error getting backtest results:', err);
+            }
           }
           
           // Check if backtest seems stuck (no progress for 2 minutes)
@@ -68,6 +123,7 @@ const BacktestResultsPage: React.FC = () => {
           attempts++;
         } catch (err) {
           // If error, wait and retry
+          console.error('Polling error:', err);
           await new Promise(resolve => setTimeout(resolve, 2000));
           attempts++;
         }
@@ -632,6 +688,7 @@ const SummaryTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
         </h2>
         
         <div className="space-y-4">
+          {/* Strong Strategy - High returns with good risk management */}
           {totalReturn > 0.20 && sharpeRatio > 1 && (
             <div className="flex items-start p-4 bg-green-50 border-l-4 border-green-500 rounded">
               <span className="text-2xl mr-3">✅</span>
@@ -642,6 +699,18 @@ const SummaryTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
             </div>
           )}
 
+          {/* Good Returns but Risk Management Could Be Better */}
+          {totalReturn > 0.20 && sharpeRatio <= 1 && sharpeRatio >= 0.5 && (
+            <div className="flex items-start p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded">
+              <span className="text-2xl mr-3">⚠️</span>
+              <div>
+                <h3 className="font-bold text-yellow-900">Good Returns, But Risk Management Needs Work</h3>
+                <p className="text-yellow-800 text-sm mt-1">Your strategy has strong returns ({((totalReturn * 100).toFixed(1))}%), but the risk-adjusted returns (Sharpe: {sharpeRatio.toFixed(2)}) could be better. Consider adding tighter stop-losses, reducing position sizes, or improving entry timing to improve the risk/reward ratio.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Modest Returns */}
           {totalReturn > 0 && totalReturn <= 0.20 && (
             <div className="flex items-start p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded">
               <span className="text-2xl mr-3">⚠️</span>
@@ -652,6 +721,7 @@ const SummaryTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
             </div>
           )}
 
+          {/* Losing Strategy */}
           {totalReturn < 0 && (
             <div className="flex items-start p-4 bg-red-50 border-l-4 border-red-500 rounded">
               <span className="text-2xl mr-3">❌</span>
@@ -662,7 +732,8 @@ const SummaryTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
             </div>
           )}
 
-          {sharpeRatio < 0.5 && (
+          {/* High Risk Warning */}
+          {sharpeRatio < 0.5 && totalReturn > 0 && (
             <div className="flex items-start p-4 bg-orange-50 border-l-4 border-orange-500 rounded">
               <span className="text-2xl mr-3">⚠️</span>
               <div>
@@ -672,12 +743,24 @@ const SummaryTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
             </div>
           )}
 
+          {/* Large Drawdowns Warning */}
           {maxDrawdown > 0.30 && (
             <div className="flex items-start p-4 bg-red-50 border-l-4 border-red-500 rounded">
               <span className="text-2xl mr-3">📉</span>
               <div>
                 <h3 className="font-bold text-red-900">Large Drawdowns</h3>
                 <p className="text-red-800 text-sm mt-1">30%+ drops are hard to stomach. Consider adding trailing stop-losses or tighter risk controls.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Moderate Drawdown Warning */}
+          {maxDrawdown > 0.15 && maxDrawdown <= 0.30 && sharpeRatio < 1 && (
+            <div className="flex items-start p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded">
+              <span className="text-2xl mr-3">📊</span>
+              <div>
+                <h3 className="font-bold text-yellow-900">Moderate Drawdowns</h3>
+                <p className="text-yellow-800 text-sm mt-1">Your strategy experienced {((maxDrawdown * 100).toFixed(1))}% drawdowns. While manageable, consider adding trailing stops to limit downside risk.</p>
               </div>
             </div>
           )}
