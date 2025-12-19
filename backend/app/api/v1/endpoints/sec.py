@@ -20,11 +20,10 @@ router = APIRouter()
 
 @router.get("/institutions", response_model=list[Institution])
 async def get_institutions(
-    current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
     popular_only: bool = Query(False, description="Return only popular institutions")
 ):
-    """Get list of institutions"""
+    """Get list of institutions (public endpoint)"""
     institutions = await SECService.get_all_institutions(db, popular_only)
     
     # If no institutions, seed popular ones
