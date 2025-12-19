@@ -68,12 +68,12 @@ class Backtest(Base):
     sharpe_ratio = Column(Float, nullable=True)
     max_drawdown = Column(Float, nullable=True)
     api_calls_made = Column(Integer, nullable=True)
-    stocks_analyzed = Column(Text, nullable=True)
-    real_market_data = Column(Text, nullable=True)
-    institutional_signals = Column(Text, nullable=True)
-    summary_metrics = Column(Text, nullable=True)
-    equity_curve = Column(Text, nullable=True)
-    trades = Column(Text, nullable=True)
+    stocks_analyzed = Column(ARRAY(String) if is_postgres else Text, nullable=True)
+    real_market_data = Column(JSON if is_postgres else Text, nullable=True)
+    institutional_signals = Column(JSON if is_postgres else Text, nullable=True)
+    summary_metrics = Column(JSON if is_postgres else Text, nullable=True)
+    equity_curve = Column(JSON if is_postgres else Text, nullable=True)
+    trades = Column(JSON if is_postgres else Text, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
@@ -165,12 +165,16 @@ def update_backtest_results(backtest_id: str, results: dict) -> None:
             backtest.sharpe_ratio = results.get("sharpe_ratio")
             backtest.max_drawdown = results.get("max_drawdown")
             backtest.api_calls_made = results.get("api_calls_made")
-            backtest.stocks_analyzed = json.dumps(results.get("stocks_analyzed", []))
-            backtest.real_market_data = json.dumps(results.get("real_market_data", {}))
-            backtest.institutional_signals = json.dumps(results.get("institutional_signals", {}))
-            backtest.summary_metrics = json.dumps(results.get("summary_metrics", {}))
-            backtest.equity_curve = json.dumps(results.get("equity_curve", {}))
-            backtest.trades = json.dumps(results.get("trades", []))
+            
+            # For PostgreSQL: pass as native types (list/dict)
+            # For SQLite: convert to JSON strings
+            backtest.stocks_analyzed = results.get("stocks_analyzed", []) if is_postgres else json.dumps(results.get("stocks_analyzed", []))
+            backtest.real_market_data = results.get("real_market_data", {}) if is_postgres else json.dumps(results.get("real_market_data", {}))
+            backtest.institutional_signals = results.get("institutional_signals", {}) if is_postgres else json.dumps(results.get("institutional_signals", {}))
+            backtest.summary_metrics = results.get("summary_metrics", {}) if is_postgres else json.dumps(results.get("summary_metrics", {}))
+            backtest.equity_curve = results.get("equity_curve", {}) if is_postgres else json.dumps(results.get("equity_curve", {}))
+            backtest.trades = results.get("trades", []) if is_postgres else json.dumps(results.get("trades", []))
+            
             backtest.error_message = results.get("error_message")
             backtest.completed_at = datetime.utcnow() if backtest.status == "completed" else None
             db.commit()
@@ -192,8 +196,9 @@ def get_all_strategies() -> list:
             ).order_by(desc(Backtest.created_at)).first()
             
             # Convert CIKs to institution names using cache
-            institution_ciks = json.loads(strategy.selected_institutions or "[]")
-            institution_names = [get_institution_name(cik) for cik in institution_ciks]  # ✅ Uses cache!
+            # For PostgreSQL: already a list, For SQLite: need to parse JSON
+            institution_ciks = strategy.selected_institutions if is_postgres else json.loads(strategy.selected_institutions or "[]")
+            institution_names = [get_institution_name(cik) for cik in (institution_ciks or [])]  # ✅ Uses cache!
             
             result.append({
                 "id": strategy.id,
@@ -224,12 +229,16 @@ def get_strategy(strategy_id: int) -> dict:
         if not strategy:
             return None
         
+        # For PostgreSQL: already native types, For SQLite: need to parse JSON
+        config = strategy.strategy_config if is_postgres else json.loads(strategy.strategy_config)
+        institutions = strategy.selected_institutions if is_postgres else json.loads(strategy.selected_institutions or "[]")
+        
         return {
             "id": strategy.id,
             "name": strategy.name,
             "description": strategy.description,
-            "strategy_config": json.loads(strategy.strategy_config),
-            "selected_institutions": json.loads(strategy.selected_institutions or "[]"),
+            "strategy_config": config,
+            "selected_institutions": institutions or [],
             "status": strategy.status,
             "created_at": strategy.created_at.isoformat(),
             "updated_at": strategy.updated_at.isoformat(),
@@ -258,6 +267,14 @@ def get_backtest(backtest_id: str) -> dict:
         if not backtest:
             return None
         
+        # For PostgreSQL: already native types, For SQLite: need to parse JSON
+        stocks_analyzed = backtest.stocks_analyzed if is_postgres else json.loads(backtest.stocks_analyzed or "[]")
+        real_market_data = backtest.real_market_data if is_postgres else json.loads(backtest.real_market_data or "{}")
+        institutional_signals = backtest.institutional_signals if is_postgres else json.loads(backtest.institutional_signals or "{}")
+        summary_metrics = backtest.summary_metrics if is_postgres else json.loads(backtest.summary_metrics or "{}")
+        equity_curve = backtest.equity_curve if is_postgres else json.loads(backtest.equity_curve or "{}")
+        trades = backtest.trades if is_postgres else json.loads(backtest.trades or "[]")
+        
         return {
             "backtest_id": backtest.backtest_id,
             "strategy_id": backtest.strategy_id,
@@ -271,12 +288,12 @@ def get_backtest(backtest_id: str) -> dict:
             "sharpe_ratio": backtest.sharpe_ratio,
             "max_drawdown": backtest.max_drawdown,
             "api_calls_made": backtest.api_calls_made,
-            "stocks_analyzed": json.loads(backtest.stocks_analyzed or "[]"),
-            "real_market_data": json.loads(backtest.real_market_data or "{}"),
-            "institutional_signals": json.loads(backtest.institutional_signals or "{}"),
-            "summary_metrics": json.loads(backtest.summary_metrics or "{}"),
-            "equity_curve": json.loads(backtest.equity_curve or "{}"),
-            "trades": json.loads(backtest.trades or "[]"),
+            "stocks_analyzed": stocks_analyzed or [],
+            "real_market_data": real_market_data or {},
+            "institutional_signals": institutional_signals or {},
+            "summary_metrics": summary_metrics or {},
+            "equity_curve": equity_curve or {},
+            "trades": trades or [],
             "error_message": backtest.error_message,
             "created_at": backtest.created_at.isoformat(),
             "completed_at": backtest.completed_at.isoformat() if backtest.completed_at else None
