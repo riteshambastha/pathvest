@@ -26,7 +26,7 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
     try {
       // Log the config being sent for debugging
       console.log('🚀 Submitting backtest with config:', JSON.stringify(config, null, 2));
-      console.log('📊 Selected institutions:', config.sub_universe_filters?.selected_institutions || config.stock_selection?.selected_institutions || []);
+      console.log('📊 Selected institutions:', config.sub_universe_filters?.selected_institutions || []);
       
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/backtest/run`, {
         method: 'POST',
