@@ -21,16 +21,32 @@ const BacktestResultsPage: React.FC = () => {
   const [attribution, setAttribution] = useState<Attribution | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [minLoadingTimeElapsed, setMinLoadingTimeElapsed] = useState(false);
+  const [canManuallyClose, setCanManuallyClose] = useState(false);
 
   useEffect(() => {
     if (backtestId) {
+      // Start minimum loading time timer
+      const timer = setTimeout(() => {
+        setMinLoadingTimeElapsed(true);
+      }, 1500); // 1.5 seconds
+      
+      // After 3 seconds, allow manual close
+      const manualCloseTimer = setTimeout(() => {
+        setCanManuallyClose(true);
+      }, 3000);
+      
       loadResults();
+      
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(manualCloseTimer);
+      };
     }
   }, [backtestId]);
 
   const loadResults = async () => {
     try {
-      setLoading(true);
       const startTime = Date.now();
       const MIN_LOADING_TIME = 1500; // Show loading for at least 1.5 seconds
       
@@ -49,9 +65,9 @@ const BacktestResultsPage: React.FC = () => {
             
             // Check if backtest is complete
             if (data.status === 'completed') {
-              // Ensure minimum loading time before showing results
+              // Wait for minimum loading time if not elapsed yet
               const elapsedTime = Date.now() - startTime;
-              if (elapsedTime < MIN_LOADING_TIME) {
+              if (elapsedTime < MIN_LOADING_TIME || !minLoadingTimeElapsed) {
                 // Show progress at 100% while waiting
                 setResults({
                   ...data,
@@ -65,7 +81,16 @@ const BacktestResultsPage: React.FC = () => {
                     institutions_analyzed: []
                   }
                 } as any);
-                await new Promise(resolve => setTimeout(resolve, MIN_LOADING_TIME - elapsedTime));
+                
+                // Wait for the remaining time or until minLoadingTimeElapsed
+                const waitTime = Math.max(0, MIN_LOADING_TIME - elapsedTime);
+                if (waitTime > 0) {
+                  await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+                // Also wait for the state to update
+                while (!minLoadingTimeElapsed) {
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                }
               }
               setResults(data);
               break;
@@ -114,9 +139,9 @@ const BacktestResultsPage: React.FC = () => {
                   try {
                     data = await getBacktestResults(backtestId!);
                     
-                    // Ensure minimum loading time
+                    // Wait for minimum loading time if not elapsed yet
                     const elapsedTime = Date.now() - startTime;
-                    if (elapsedTime < MIN_LOADING_TIME) {
+                    if (elapsedTime < MIN_LOADING_TIME || !minLoadingTimeElapsed) {
                       setResults({
                         ...data,
                         progress: {
@@ -129,7 +154,14 @@ const BacktestResultsPage: React.FC = () => {
                           institutions_analyzed: []
                         }
                       } as any);
-                      await new Promise(resolve => setTimeout(resolve, MIN_LOADING_TIME - elapsedTime));
+                      
+                      const waitTime = Math.max(0, MIN_LOADING_TIME - elapsedTime);
+                      if (waitTime > 0) {
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                      }
+                      while (!minLoadingTimeElapsed) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                      }
                     }
                     setResults(data);
                     break;
@@ -199,7 +231,12 @@ const BacktestResultsPage: React.FC = () => {
     downloadBlob(blob, `backtest_${backtestId}.pdf`);
   };
 
-  if (loading) {
+  const handleManualClose = () => {
+    setLoading(false);
+    setMinLoadingTimeElapsed(true);
+  };
+
+  if (loading && !minLoadingTimeElapsed) {
     const progress = (results as any)?.progress || null;
     
     return (
@@ -304,6 +341,24 @@ const BacktestResultsPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Manual Close Button (appears after 3 seconds) */}
+          {canManuallyClose && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={handleManualClose}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center mx-auto"
+              >
+                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                View Results Now
+              </button>
+              <p className="mt-2 text-xs text-gray-500">
+                Results are ready. Click to view without waiting.
+              </p>
+            </div>
+          )}
 
           {/* Time Estimate */}
           <div className="mt-4 text-center text-xs text-gray-500">
