@@ -165,8 +165,12 @@ def update_backtest_results(backtest_id: str, results: dict) -> None:
             backtest.total_return = results.get("total_return")
             backtest.sharpe_ratio = results.get("sharpe_ratio")
             backtest.max_drawdown = results.get("max_drawdown")
-            backtest.api_calls_made = results.get("api_calls_made")
-            backtest.sec_filings_fetched = results.get("sec_filings_fetched")
+            
+            # Safe attribute access - only set if column exists
+            if hasattr(backtest, 'api_calls_made'):
+                backtest.api_calls_made = results.get("api_calls_made", 0)
+            if hasattr(backtest, 'sec_filings_fetched'):
+                backtest.sec_filings_fetched = results.get("sec_filings_fetched", 0)
             
             # For PostgreSQL: pass as native types (list/dict)
             # For SQLite: convert to JSON strings
@@ -180,6 +184,10 @@ def update_backtest_results(backtest_id: str, results: dict) -> None:
             backtest.error_message = results.get("error_message")
             backtest.completed_at = datetime.utcnow() if backtest.status == "completed" else None
             db.commit()
+    except Exception as e:
+        print(f"❌ Error updating backtest results: {e}")
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -289,8 +297,8 @@ def get_backtest(backtest_id: str) -> dict:
             "total_return": backtest.total_return,
             "sharpe_ratio": backtest.sharpe_ratio,
             "max_drawdown": backtest.max_drawdown,
-            "api_calls_made": backtest.api_calls_made,
-            "sec_filings_fetched": backtest.sec_filings_fetched,
+            "api_calls_made": getattr(backtest, 'api_calls_made', 0),  # Safe access with default
+            "sec_filings_fetched": getattr(backtest, 'sec_filings_fetched', 0),  # Safe access with default
             "stocks_analyzed": stocks_analyzed or [],
             "real_market_data": real_market_data or {},
             "institutional_signals": institutional_signals or {},
