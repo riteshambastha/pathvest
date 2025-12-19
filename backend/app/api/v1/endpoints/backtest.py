@@ -7,8 +7,9 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 import asyncio
+import json
 
 from app.schemas.backtest_request import BacktestRequest
 from app.schemas.backtest_response import BacktestResponse, BacktestStatus
@@ -24,6 +25,17 @@ router = APIRouter(tags=["Backtest"])
 
 # In-memory storage for development (would use Redis/DB in production)
 backtest_jobs = {}
+
+
+def serialize_dates(obj):
+    """Recursively convert date/datetime objects to strings in a dict"""
+    if isinstance(obj, dict):
+        return {k: serialize_dates(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_dates(item) for item in obj]
+    elif isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    return obj
 
 
 @router.post("/run", response_model=BacktestStatus, status_code=202)
@@ -73,6 +85,9 @@ async def run_backtest(
     # The frontend may send this in different ways, so we need to handle both cases
     selected_institutions = []
     config_dict = request.strategy_config.dict()
+    
+    # Serialize dates to strings for JSON storage
+    config_dict = serialize_dates(config_dict)
     
     # Try to get from stock_selection if it exists
     if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
