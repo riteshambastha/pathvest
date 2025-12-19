@@ -1,7 +1,6 @@
 """
-LEAN Backtesting Engine
-Event-driven institutional equity backtesting with LEAN/QuantConnect
+LEAN Engine Package
+Quantitative backtesting engine for PathVest
 """
 
-__version__ = "1.0.0"
-
+__version__ = "0.1.0"

@@ -1,7 +1,7 @@
 """add_sec_filings_fetched_column
 
 Revision ID: b7c8d9e0f1a2
-Revises: f1a2b3c4d5e6
+Revises: a1b2c3d4e5f6
 Create Date: 2025-12-19 12:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'b7c8d9e0f1a2'
-down_revision = 'f1a2b3c4d5e6'
+down_revision = 'a1b2c3d4e5f6'  # Fixed: point to the actual latest migration
 branch_labels = None
 depends_on = None
 
