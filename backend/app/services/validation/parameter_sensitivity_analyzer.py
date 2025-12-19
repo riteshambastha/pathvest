@@ -3,13 +3,15 @@ Parameter Sensitivity Analyzer
 Tests strategy robustness across parameter space to identify overfitting
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import itertools
 
 from app.schemas.validation_request import ParameterSensitivityConfig, ParameterSensitivityRequest
 from app.schemas.validation_response import ParameterSensitivityResponse
 from app.schemas.backtest_request import StrategyConfig
-from lean_engine.worker.backtest_worker import get_backtest_worker
+
+# LEAN engine imports commented out until LEAN worker is implemented
+# from lean_engine.worker.backtest_worker import get_backtest_worker
 
 
 class ParameterSensitivityAnalyzer:
@@ -29,7 +31,8 @@ class ParameterSensitivityAnalyzer:
     
     def __init__(self):
         """Initialize parameter sensitivity analyzer"""
-        self.backtest_worker = get_backtest_worker()
+        # TODO: Initialize backtest worker when LEAN engine is implemented
+        self.backtest_worker = None  # get_backtest_worker()
     
     async def run_sensitivity_analysis(
         self,

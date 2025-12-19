@@ -3,7 +3,7 @@ Walk-Forward Optimization Engine
 Implements train-test split methodology for robust strategy validation
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 import itertools
@@ -12,7 +12,9 @@ import asyncio
 from app.schemas.validation_request import WalkForwardConfig, WalkForwardRequest
 from app.schemas.validation_response import WalkForwardResponse, WalkForwardPeriod
 from app.schemas.backtest_request import StrategyConfig
-from lean_engine.worker.backtest_worker import get_backtest_worker
+
+# LEAN engine imports commented out until LEAN worker is implemented
+# from lean_engine.worker.backtest_worker import get_backtest_worker
 
 
 class WalkForwardOptimizer:
@@ -30,7 +32,8 @@ class WalkForwardOptimizer:
     
     def __init__(self):
         """Initialize walk-forward optimizer"""
-        self.backtest_worker = get_backtest_worker()
+        # TODO: Initialize backtest worker when LEAN engine is implemented
+        self.backtest_worker = None  # get_backtest_worker()
     
     async def run_walk_forward_optimization(
         self,
