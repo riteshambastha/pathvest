@@ -58,84 +58,97 @@ async def run_backtest(
     Returns:
         BacktestStatus with backtest_id and initial status
     """
-    # Generate unique backtest ID
-    backtest_id = f"bt_{uuid.uuid4().hex[:12]}"
-    
-    # Validate date range
-    start_date = request.strategy_config.backtest_period.start_date
-    end_date = request.strategy_config.backtest_period.end_date
-    
-    if end_date <= start_date:
-        raise HTTPException(
-            status_code=400,
-            detail="end_date must be after start_date"
+    try:
+        # Generate unique backtest ID
+        backtest_id = f"bt_{uuid.uuid4().hex[:12]}"
+        
+        # Validate date range
+        start_date = request.strategy_config.backtest_period.start_date
+        end_date = request.strategy_config.backtest_period.end_date
+        
+        if end_date <= start_date:
+            raise HTTPException(
+                status_code=400,
+                detail="end_date must be after start_date"
+            )
+        
+        # Validate initial capital
+        if request.strategy_config.initial_capital <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="initial_capital must be positive"
+            )
+        
+        # Save strategy to database
+        strategy_name = request.strategy_config.name or f"Strategy {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+        
+        # Extract selected institutions from the request
+        # The frontend may send this in different ways, so we need to handle both cases
+        selected_institutions = []
+        config_dict = request.strategy_config.dict()
+        
+        # Serialize dates to strings for JSON storage
+        config_dict = serialize_dates(config_dict)
+        
+        # Try to get from stock_selection if it exists
+        if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+            selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
+        # Or directly from the config
+        elif 'selected_institutions' in config_dict:
+            selected_institutions = config_dict['selected_institutions']
+        
+        strategy_id = save_strategy(
+            name=strategy_name,
+            config=config_dict,
+            selected_institutions=selected_institutions
         )
-    
-    # Validate initial capital
-    if request.strategy_config.initial_capital <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="initial_capital must be positive"
+        
+        # Save backtest to database
+        save_backtest(
+            backtest_id=backtest_id,
+            strategy_id=strategy_id,
+            config=config_dict
         )
-    
-    # Save strategy to database
-    strategy_name = request.strategy_config.name or f"Strategy {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
-    
-    # Extract selected institutions from the request
-    # The frontend may send this in different ways, so we need to handle both cases
-    selected_institutions = []
-    config_dict = request.strategy_config.dict()
-    
-    # Serialize dates to strings for JSON storage
-    config_dict = serialize_dates(config_dict)
-    
-    # Try to get from stock_selection if it exists
-    if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
-        selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
-    # Or directly from the config
-    elif 'selected_institutions' in config_dict:
-        selected_institutions = config_dict['selected_institutions']
-    
-    strategy_id = save_strategy(
-        name=strategy_name,
-        config=config_dict,
-        selected_institutions=selected_institutions
-    )
-    
-    # Save backtest to database
-    save_backtest(
-        backtest_id=backtest_id,
-        strategy_id=strategy_id,
-        config=config_dict
-    )
-    
-    # Create job record
-    job_record = {
-        'backtest_id': backtest_id,
-        'strategy_id': strategy_id,
-        'status': 'queued',
-        'progress_pct': 0,
-        'message': 'Backtest queued for execution',
-        'request': serialize_dates(request.dict()),  # Serialize dates here too
-        'created_at': datetime.utcnow(),
-        'result': None
-    }
-    
-    backtest_jobs[backtest_id] = job_record
-    
-    # Queue backtest execution in background
-    background_tasks.add_task(
-        execute_backtest_task,
-        backtest_id=backtest_id,
-        request=request
-    )
-    
-    return BacktestStatus(
-        backtest_id=backtest_id,
-        status='queued',
-        progress_pct=0,
-        message='Backtest queued for execution'
-    )
+        
+        # Create job record
+        job_record = {
+            'backtest_id': backtest_id,
+            'strategy_id': strategy_id,
+            'status': 'queued',
+            'progress_pct': 0,
+            'message': 'Backtest queued for execution',
+            'request': serialize_dates(request.dict()),  # Serialize dates here too
+            'created_at': datetime.utcnow(),
+            'result': None
+        }
+        
+        backtest_jobs[backtest_id] = job_record
+        
+        # Queue backtest execution in background
+        background_tasks.add_task(
+            execute_backtest_task,
+            backtest_id=backtest_id,
+            request=request
+        )
+        
+        return BacktestStatus(
+            backtest_id=backtest_id,
+            status='queued',
+            progress_pct=0,
+            message='Backtest queued for execution'
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Log the error and return a proper error response
+        print(f"Error in run_backtest: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
 
 
 @router.get("/{backtest_id}/status", response_model=BacktestStatus)
