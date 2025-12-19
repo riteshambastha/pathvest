@@ -89,19 +89,25 @@ async def run_backtest(
         strategy_name = request.strategy_config.name or f"Strategy {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
         
         # Extract selected institutions from the request
-        # The frontend may send this in different ways, so we need to handle both cases
+        # The frontend may send this in different ways, so we need to handle all cases
         selected_institutions = []
         config_dict = request.strategy_config.dict()
         
         # Serialize dates to strings for JSON storage
         config_dict = serialize_dates(config_dict)
         
-        # Try to get from stock_selection if it exists
+        # Try multiple locations where institutions might be stored:
+        # 1. In stock_selection
         if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
             selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
-        # Or directly from the config
+        # 2. In sub_universe_filters (frontend stores here!)
+        elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
+            selected_institutions = config_dict['sub_universe_filters'].get('selected_institutions', [])
+        # 3. Directly in config
         elif 'selected_institutions' in config_dict:
             selected_institutions = config_dict['selected_institutions']
+        
+        print(f"📊 Extracted {len(selected_institutions)} institutions from config: {selected_institutions}")
         
         strategy_id = save_strategy(
             name=strategy_name,
@@ -566,8 +572,13 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
     config_dict = config.dict()
     
     # Extract selected_institutions (same logic as run_backtest)
+    # 1. In stock_selection
     if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
         selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
+    # 2. In sub_universe_filters (frontend stores here!)
+    elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
+        selected_institutions = config_dict['sub_universe_filters'].get('selected_institutions', [])
+    # 3. Directly in config
     elif 'selected_institutions' in config_dict:
         selected_institutions = config_dict['selected_institutions']
     

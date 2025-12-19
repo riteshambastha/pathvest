@@ -262,9 +262,14 @@ class BacktestWorker:
         institution_ciks = []
         config_dict = config.dict()
         
-        # Handle different ways selected_institutions might be stored
+        # Handle different ways selected_institutions might be stored:
+        # 1. In stock_selection
         if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
             institution_ciks = config_dict['stock_selection'].get('selected_institutions', [])
+        # 2. In sub_universe_filters (frontend stores here!)
+        elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
+            institution_ciks = config_dict['sub_universe_filters'].get('selected_institutions', [])
+        # 3. Directly in config
         elif 'selected_institutions' in config_dict:
             institution_ciks = config_dict['selected_institutions']
         
