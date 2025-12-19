@@ -512,12 +512,25 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
             
             # Extract selected institutions
             selected_institutions = []
+            config_dict = config.dict()
+            
+            # Log what we received
+            print(f"🔍 Config dict keys: {list(config_dict.keys())}")
+            print(f"🔍 sub_universe_filters type: {type(config_dict.get('sub_universe_filters'))}")
+            print(f"🔍 sub_universe_filters content: {config_dict.get('sub_universe_filters')}")
+            
             if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
                 selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
+                print(f"📍 Found institutions in stock_selection: {selected_institutions}")
             elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
                 selected_institutions = config_dict['sub_universe_filters'].get('selected_institutions', [])
+                print(f"📍 Found institutions in sub_universe_filters: {selected_institutions}")
             elif 'selected_institutions' in config_dict:
                 selected_institutions = config_dict['selected_institutions']
+                print(f"📍 Found institutions at top level: {selected_institutions}")
+            else:
+                print(f"❌ Could not find institutions anywhere!")
+                print(f"❌ Full config: {json.dumps(config_dict, indent=2, default=str)}")
             
             print(f"📊 Using {len(selected_institutions)} institutions for custom backtest")
             
