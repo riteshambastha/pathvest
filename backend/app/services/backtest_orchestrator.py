@@ -88,12 +88,18 @@ class BacktestOrchestrator:
         
         def update_progress(message: str, percent: int, details: List[str] = None):
             if progress_callback:
-                progress_callback(message, percent, details)
+                progress_callback(message, percent, details or [])
             print(f"📍 [{percent}%] {message}")
+            if details:
+                for detail in details:
+                    print(f"    • {detail}")
         
         try:
             # Step 1: Fetch SEC signals from PostgreSQL
-            update_progress("Fetching SEC filing signals...", 10)
+            update_progress("Fetching SEC filing signals...", 10, [
+                f"Querying {len(selected_institutions)} institutions",
+                f"Date range: {start_date} to {end_date}"
+            ])
             signals = await self.fetch_sec_signals(
                 start_date, 
                 end_date, 
@@ -102,6 +108,10 @@ class BacktestOrchestrator:
             )
             
             if not signals:
+                update_progress("No signals found", 100, [
+                    "⚠️ No institutional activity found for selected criteria",
+                    "Try: Expand date range or select more institutions"
+                ])
                 return {
                     'error': 'No signals found for the given criteria',
                     'total_return': 0,
@@ -109,23 +119,66 @@ class BacktestOrchestrator:
                     'max_drawdown': 0
                 }
             
-            update_progress(f"Found {len(signals)} trading signals", 30)
+            update_progress(f"Found {len(signals)} trading signals", 30, [
+                f"✅ SEC signals extracted successfully",
+                f"Signal types: BUY, SELL, DOUBLING_DOWN"
+            ])
             
             # Step 2: Get unique tickers from signals
             tickers = list(set([s['ticker'] for s in signals]))
-            update_progress(f"Fetching historical prices for {len(tickers)} stocks...", 40)
+            update_progress(f"Fetching historical prices for {len(tickers)} stocks...", 40, [
+                f"Using AlphaVantage API (free tier: 5 calls/min)",
+                f"Estimated time: ~{len(tickers) * 12 / 60:.1f} minutes",
+                "⏱️ Please wait while we fetch real market data..."
+            ])
             
             # Step 3: Fetch historical prices (with rate limiting)
+            prices_fetched = []
+            prices_failed = []
+            
+            def price_progress_callback(ticker, idx, total):
+                status = "✅" if ticker in historical_prices else "⚠️"
+                if ticker in historical_prices:
+                    prices_fetched.append(ticker)
+                else:
+                    prices_failed.append(ticker)
+                    
+                update_progress(
+                    f"Fetching prices: {idx}/{total} ({status} {ticker})",
+                    40 + int((idx/total) * 40),
+                    [
+                        f"Completed: {len(prices_fetched)} stocks",
+                        f"Failed: {len(prices_failed)} stocks",
+                        f"Current: {ticker}"
+                    ] + ([f"⚠️ Check ALPHAVANTAGE_API_KEY if many failures"] if len(prices_failed) > 3 else [])
+                )
+            
             historical_prices = await self.fetch_historical_prices_batch(
                 tickers, 
                 start_date, 
                 end_date,
-                lambda ticker, idx, total: update_progress(
-                    f"Fetching {ticker} ({idx}/{total})",
-                    40 + int((idx/total) * 40),
-                    [f"Completed: {ticker}"]
-                )
+                price_progress_callback
             )
+            
+            if not historical_prices:
+                update_progress("Price fetch failed", 100, [
+                    "❌ No price data fetched",
+                    "⚠️ Check: ALPHAVANTAGE_API_KEY environment variable",
+                    "⚠️ Check: AlphaVantage API rate limits",
+                    f"Attempted to fetch: {len(tickers)} tickers"
+                ])
+                return {
+                    'error': 'Failed to fetch historical prices',
+                    'total_return': 0,
+                    'sharpe_ratio': 0,
+                    'max_drawdown': 0
+                }
+            
+            update_progress(f"Price data ready: {len(historical_prices)}/{len(tickers)} stocks", 80, [
+                f"✅ Successfully fetched: {len(prices_fetched)} stocks",
+                f"⚠️ Failed: {len(prices_failed)} stocks" if prices_failed else "✅ All stocks fetched successfully",
+                f"Moving to portfolio simulation..."
+            ])
             
             update_progress("Running portfolio simulation...", 85)
             
@@ -382,15 +435,39 @@ class BacktestOrchestrator:
                     if not df.empty:
                         historical_prices[ticker] = df
                         print(f"   ✅ {ticker}: {len(df)} days")
+                        
+                        if progress_callback:
+                            progress_callback(
+                                ticker, 
+                                idx, 
+                                len(tickers)
+                            )
+                    else:
+                        print(f"   ⚠️  {ticker}: No data returned")
+                        if progress_callback:
+                            progress_callback(
+                                ticker, 
+                                idx, 
+                                len(tickers)
+                            )
                     
-                    if progress_callback:
-                        progress_callback(ticker, idx, len(tickers))
-                    
-                    # Rate limiting: Wait 12 seconds between each fetch
+                    # Rate limiting: Wait 12 seconds between each fetch (5 calls/min)
                     await asyncio.sleep(12)
                     
                 except Exception as e:
-                    print(f"   ⚠️  {ticker}: {str(e)[:50]}")
+                    error_msg = str(e)[:100]
+                    print(f"   ❌ {ticker}: {error_msg}")
+                    
+                    # Check if it's an API key error
+                    if 'API' in error_msg.upper() or 'KEY' in error_msg.upper() or '401' in error_msg or '403' in error_msg:
+                        print(f"   ⚠️  ALPHAVANTAGE_API_KEY may be invalid or missing!")
+                    
+                    if progress_callback:
+                        progress_callback(
+                            ticker, 
+                            idx, 
+                            len(tickers)
+                        )
         
         # Fetch all tickers in parallel (but limited by semaphore)
         tasks = [fetch_one_ticker(ticker, idx) for idx, ticker in enumerate(tickers, 1)]

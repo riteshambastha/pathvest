@@ -303,23 +303,40 @@ const BacktestResultsPage: React.FC = () => {
           </div>
 
           {/* Activity Log */}
-          <div className="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
+          <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
             <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
               <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Activity Log
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {progress?.details && progress.details.length > 0 ? (
-                [...progress.details].reverse().slice(0, 8).map((detail: string, idx: number) => (
-                  <div key={idx} className="text-xs text-gray-700 flex items-start animate-fadeIn">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>{detail}</span>
-                  </div>
-                ))
+                [...progress.details].reverse().slice(0, 12).map((detail: string, idx: number) => {
+                  // Determine message type by icon
+                  const isError = detail.includes('❌');
+                  const isWarning = detail.includes('⚠️');
+                  const isSuccess = detail.includes('✅');
+                  const isInfo = detail.includes('⏱️') || detail.includes('📊');
+                  
+                  let colorClass = 'text-gray-700 bg-white';
+                  if (isError) colorClass = 'text-red-700 bg-red-50 border-red-200';
+                  else if (isWarning) colorClass = 'text-amber-700 bg-amber-50 border-amber-200';
+                  else if (isSuccess) colorClass = 'text-green-700 bg-green-50 border-green-200';
+                  else if (isInfo) colorClass = 'text-blue-700 bg-blue-50 border-blue-200';
+                  
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`text-xs flex items-start p-2 rounded border animate-fadeIn ${colorClass}`}
+                    >
+                      <span className="text-blue-500 mr-2 flex-shrink-0">•</span>
+                      <span className="flex-1 font-mono">{detail}</span>
+                    </div>
+                  );
+                })
               ) : (
-                <div className="text-xs text-gray-500 italic">Starting backtest analysis...</div>
+                <div className="text-xs text-gray-500 italic p-2">Starting backtest analysis...</div>
               )}
             </div>
           </div>
