@@ -31,6 +31,8 @@ const BacktestResultsPage: React.FC = () => {
   const loadResults = async () => {
     try {
       setLoading(true);
+      const startTime = Date.now();
+      const MIN_LOADING_TIME = 1500; // Show loading for at least 1.5 seconds
       
       // Poll for completion if backtest is still running
       let attempts = 0;
@@ -47,6 +49,24 @@ const BacktestResultsPage: React.FC = () => {
             
             // Check if backtest is complete
             if (data.status === 'completed') {
+              // Ensure minimum loading time before showing results
+              const elapsedTime = Date.now() - startTime;
+              if (elapsedTime < MIN_LOADING_TIME) {
+                // Show progress at 100% while waiting
+                setResults({
+                  ...data,
+                  progress: {
+                    percent: 100,
+                    message: 'Finalizing results...',
+                    stage: 'completed',
+                    details: ['Backtest completed successfully'],
+                    current_stock: null,
+                    stocks_completed: [],
+                    institutions_analyzed: []
+                  }
+                } as any);
+                await new Promise(resolve => setTimeout(resolve, MIN_LOADING_TIME - elapsedTime));
+              }
               setResults(data);
               break;
             } else if (data.status === 'failed') {
@@ -93,6 +113,24 @@ const BacktestResultsPage: React.FC = () => {
                   // Try to get final results
                   try {
                     data = await getBacktestResults(backtestId!);
+                    
+                    // Ensure minimum loading time
+                    const elapsedTime = Date.now() - startTime;
+                    if (elapsedTime < MIN_LOADING_TIME) {
+                      setResults({
+                        ...data,
+                        progress: {
+                          percent: 100,
+                          message: 'Finalizing results...',
+                          stage: 'completed',
+                          details: ['Backtest completed successfully'],
+                          current_stock: null,
+                          stocks_completed: [],
+                          institutions_analyzed: []
+                        }
+                      } as any);
+                      await new Promise(resolve => setTimeout(resolve, MIN_LOADING_TIME - elapsedTime));
+                    }
                     setResults(data);
                     break;
                   } catch (finalErr) {
