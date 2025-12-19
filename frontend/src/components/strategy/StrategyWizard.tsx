@@ -219,7 +219,7 @@ const StrategyWizard: React.FC = () => {
     },
   });
 
-  // Check for reloaded strategy on mount
+  // Load config from localStorage on mount
   useEffect(() => {
     const reloadedStrategy = localStorage.getItem('reloadStrategy');
     if (reloadedStrategy) {
@@ -228,13 +228,33 @@ const StrategyWizard: React.FC = () => {
         setConfig(parsedStrategy);
         // Clear from localStorage after loading
         localStorage.removeItem('reloadStrategy');
-        // Show a notification (optional)
         console.log('✅ Strategy reloaded from history');
       } catch (err) {
         console.error('Failed to parse reloaded strategy:', err);
       }
+    } else {
+      // Try to load saved config from localStorage
+      const savedConfig = localStorage.getItem('strategyConfig');
+      if (savedConfig) {
+        try {
+          const parsedConfig = JSON.parse(savedConfig);
+          setConfig(parsedConfig);
+          console.log('✅ Strategy config loaded from localStorage');
+        } catch (err) {
+          console.error('Failed to parse saved config:', err);
+        }
+      }
     }
   }, []);
+
+  // Persist config to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('strategyConfig', JSON.stringify(config));
+    // Log institution selections for debugging
+    if (config.sub_universe_filters?.selected_institutions) {
+      console.log('📋 Institution selections saved:', config.sub_universe_filters.selected_institutions);
+    }
+  }, [config]);
 
   const nextStep = () => {
     if (currentStep < 8) {
@@ -249,7 +269,14 @@ const StrategyWizard: React.FC = () => {
   };
 
   const updateConfig = (updates: Partial<StrategyConfig>) => {
-    setConfig((prev) => ({ ...prev, ...updates }));
+    setConfig((prev) => {
+      const newConfig = { ...prev, ...updates };
+      // Log when institution selections are updated
+      if (updates.sub_universe_filters?.selected_institutions) {
+        console.log('🔄 Institution selections updated:', updates.sub_universe_filters.selected_institutions);
+      }
+      return newConfig;
+    });
   };
 
   const renderStep = () => {

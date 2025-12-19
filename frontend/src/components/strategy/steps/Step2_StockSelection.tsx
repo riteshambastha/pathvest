@@ -21,7 +21,9 @@ interface Institution {
 
 const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>([]);
+  const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>(
+    config.sub_universe_filters?.selected_institutions || []
+  );
   const [loading, setLoading] = useState(true);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
@@ -38,6 +40,14 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
       });
   }, []);
 
+  // Sync selectedInstitutions with config when it changes (e.g., when navigating back to this step)
+  useEffect(() => {
+    const configInstitutions = config.sub_universe_filters?.selected_institutions || [];
+    if (JSON.stringify(configInstitutions) !== JSON.stringify(selectedInstitutions)) {
+      setSelectedInstitutions(configInstitutions);
+    }
+  }, [config.sub_universe_filters?.selected_institutions]);
+
   const toggleInstitution = (cik: string) => {
     const newSelection = selectedInstitutions.includes(cik)
       ? selectedInstitutions.filter(c => c !== cik)
@@ -51,6 +61,14 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
         ...config.sub_universe_filters,
         selected_institutions: newSelection
       }
+    });
+    
+    // Log for debugging
+    console.log('🏦 Institution toggled:', {
+      cik,
+      action: selectedInstitutions.includes(cik) ? 'removed' : 'added',
+      totalSelected: newSelection.length,
+      selectedInstitutions: newSelection
     });
   };
 
