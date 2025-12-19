@@ -67,11 +67,23 @@ async def run_backtest(
         )
     
     # Save strategy to database
-    strategy_name = request.strategy_config.strategy_name or f"Strategy {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
-    selected_institutions = request.strategy_config.stock_selection.selected_institutions or []
+    strategy_name = request.strategy_config.name or f"Strategy {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+    
+    # Extract selected institutions from the request
+    # The frontend may send this in different ways, so we need to handle both cases
+    selected_institutions = []
+    config_dict = request.strategy_config.dict()
+    
+    # Try to get from stock_selection if it exists
+    if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+        selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
+    # Or directly from the config
+    elif 'selected_institutions' in config_dict:
+        selected_institutions = config_dict['selected_institutions']
+    
     strategy_id = save_strategy(
         name=strategy_name,
-        config=request.strategy_config.dict(),
+        config=config_dict,
         selected_institutions=selected_institutions
     )
     
@@ -79,7 +91,7 @@ async def run_backtest(
     save_backtest(
         backtest_id=backtest_id,
         strategy_id=strategy_id,
-        config=request.strategy_config.dict()
+        config=config_dict
     )
     
     # Create job record
