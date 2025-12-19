@@ -22,9 +22,18 @@ try:
     from lean_engine.worker.backtest_worker import get_backtest_worker
     LEAN_AVAILABLE = True
 except ImportError:
-    print("⚠️ LEAN worker not available, will use fallback mode")
+    print("⚠️ LEAN worker not available, will use custom backtest engine")
     LEAN_AVAILABLE = False
     get_backtest_worker = None
+
+# Import custom backtest orchestrator as fallback
+try:
+    from app.services.backtest_orchestrator import BacktestOrchestrator
+    CUSTOM_ENGINE_AVAILABLE = True
+except ImportError:
+    print("⚠️ Custom backtest engine not available")
+    CUSTOM_ENGINE_AVAILABLE = False
+    BacktestOrchestrator = None
 
 router = APIRouter(tags=["Backtest"])
 
@@ -422,13 +431,8 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
         backtest_jobs[backtest_id]['progress_pct'] = 5
         
         # Check if LEAN is available
-        if not LEAN_AVAILABLE or get_backtest_worker is None:
-            print("⚠️ LEAN engine not available, using fallback simulation mode")
-            backtest_jobs[backtest_id]['message'] = 'Running in simulation mode (LEAN unavailable)'
-            # Generate fallback result
-            result = _generate_fallback_result(backtest_id, request)
-        else:
-            # Get LEAN worker instance
+        if LEAN_AVAILABLE and get_backtest_worker is not None:
+            # Use LEAN worker (priority if available)
             worker = get_backtest_worker()
             
             # Define progress callback
@@ -444,6 +448,50 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
                 request=request,
                 progress_callback=update_progress
             )
+        elif CUSTOM_ENGINE_AVAILABLE and BacktestOrchestrator is not None:
+            # Use custom backtest engine with real API calls
+            print("⚠️ LEAN engine not available, using custom backtest engine with real data")
+            backtest_jobs[backtest_id]['message'] = 'Running with custom engine (fetching real data)...'
+            
+            orchestrator = BacktestOrchestrator()
+            
+            # Extract configuration
+            config = request.strategy_config
+            config_dict = config.dict()
+            
+            # Extract selected institutions
+            selected_institutions = []
+            if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+                selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
+            elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
+                selected_institutions = config_dict['sub_universe_filters'].get('selected_institutions', [])
+            elif 'selected_institutions' in config_dict:
+                selected_institutions = config_dict['selected_institutions']
+            
+            print(f"📊 Using {len(selected_institutions)} institutions for custom backtest")
+            
+            # Define progress callback
+            def update_progress(message: str, progress_pct: int, details: list = None):
+                backtest_jobs[backtest_id]['progress_pct'] = progress_pct
+                backtest_jobs[backtest_id]['message'] = message
+                print(f"📊 Backtest {backtest_id}: {progress_pct}% - {message}")
+            
+            # Execute backtest with custom engine
+            result_dict = await orchestrator.run_strategy_backtest(
+                start_date=str(config.backtest_period.start_date),
+                end_date=str(config.backtest_period.end_date),
+                selected_institutions=selected_institutions,
+                strategy_config=config_dict,
+                progress_callback=update_progress
+            )
+            
+            # Convert to BacktestResponse format
+            result = _convert_orchestrator_result_to_response(backtest_id, request, result_dict)
+        else:
+            # Last resort: Generate fallback result with fake data
+            print("⚠️ No backtest engine available, using fallback simulation mode")
+            backtest_jobs[backtest_id]['message'] = 'Running in simulation mode (no engine available)'
+            result = _generate_fallback_result(backtest_id, request)
         
         # Update job with results (in-memory)
         backtest_jobs[backtest_id]['status'] = 'completed'
@@ -679,5 +727,109 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
             "sec_filings_fetched": simulated_sec_filings,
             "simulation_mode": True,
             "institutions_tracked": len(selected_institutions)
+        }
+    )
+
+
+def _convert_orchestrator_result_to_response(backtest_id: str, request: BacktestRequest, result_dict: dict) -> 'BacktestResponse':
+    """
+    Convert BacktestOrchestrator result format to BacktestResponse format
+    
+    Args:
+        backtest_id: Backtest identifier
+        request: Original backtest request
+        result_dict: Result dictionary from orchestrator
+        
+    Returns:
+        BacktestResponse object
+    """
+    from app.schemas.backtest_response import BacktestSummary, EquityCurve, Trade
+    
+    config = request.strategy_config
+    
+    # Extract summary metrics from result
+    summary_data = result_dict.get('summary', {})
+    summary = BacktestSummary(
+        total_return=summary_data.get('total_return', 0.0),
+        cagr=summary_data.get('cagr', 0.0),
+        volatility=summary_data.get('volatility', 0.0),
+        sharpe_ratio=summary_data.get('sharpe_ratio', 0.0),
+        sortino_ratio=summary_data.get('sortino_ratio', 0.0),
+        max_drawdown=summary_data.get('max_drawdown', 0.0),
+        romad=summary_data.get('romad', 0.0),
+        alpha=summary_data.get('alpha', 0.0),
+        beta=summary_data.get('beta', 1.0),
+        information_ratio=summary_data.get('information_ratio', 0.0),
+        var_95=summary_data.get('var_95', 0.0),
+        cvar_95=summary_data.get('cvar_95', 0.0),
+        win_rate_daily=summary_data.get('win_rate', 0.0),
+        win_rate_monthly=summary_data.get('win_rate_monthly', 0.0),
+        win_rate_yearly=summary_data.get('win_rate_yearly', 0.0),
+        best_day=summary_data.get('best_day', 0.0),
+        worst_day=summary_data.get('worst_day', 0.0),
+        benchmark_total_return=summary_data.get('benchmark_total_return', 0.0),
+        benchmark_cagr=summary_data.get('benchmark_cagr', 0.0)
+    )
+    
+    # Extract equity curve
+    equity_data = result_dict.get('equity_curve', {})
+    equity_curve = EquityCurve(
+        dates=equity_data.get('dates', []),
+        portfolio_values=equity_data.get('portfolio_values', []),
+        benchmark_values=equity_data.get('benchmark_values', [])
+    )
+    
+    # Extract trades
+    trades_data = result_dict.get('trades', [])
+    trades = [
+        Trade(
+            entry_date=t.get('entry_date'),
+            exit_date=t.get('exit_date'),
+            ticker=t.get('ticker'),
+            entry_price=t.get('entry_price'),
+            exit_price=t.get('exit_price'),
+            shares=t.get('shares'),
+            pnl=t.get('pnl'),
+            return_pct=t.get('return_pct'),
+            holding_period_days=t.get('holding_period_days'),
+            exit_reason=t.get('exit_reason', 'unknown'),
+            signal_type=t.get('signal_type', 'institutional'),
+            conviction_score=t.get('conviction_score', 50.0),
+            rank=t.get('rank', 0)
+        )
+        for t in trades_data
+    ]
+    
+    # Extract data tracking fields
+    api_calls = result_dict.get('api_calls_made', 0)
+    sec_filings = result_dict.get('sec_filings_fetched', 0)
+    stocks = result_dict.get('stocks_analyzed', [])
+    
+    return BacktestResponse(
+        backtest_id=backtest_id,
+        status='completed',
+        execution_time_seconds=result_dict.get('execution_time_seconds', 0),
+        summary=summary,
+        equity_curve=equity_curve,
+        trades=trades,
+        strategy_name=config.name,
+        start_date=str(config.backtest_period.start_date),
+        end_date=str(config.backtest_period.end_date),
+        initial_capital=config.initial_capital,
+        final_value=result_dict.get('final_value', 100000),
+        # Add top-level tracking fields
+        api_calls_made=api_calls,
+        sec_filings_fetched=sec_filings,
+        stocks_analyzed=stocks,
+        # Keep nested metadata
+        real_market_data={
+            "data_source": result_dict.get('engine', 'Custom Engine'),
+            "api_calls": api_calls,
+            "note": "Real data from AlphaVantage and SEC EDGAR"
+        },
+        institutional_signals={
+            "sec_filings_fetched": sec_filings,
+            "simulation_mode": False,
+            "institutions_tracked": len(result_dict.get('institutions', []))
         }
     )

@@ -8,11 +8,11 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import pandas as pd
-from google.cloud import postgres
+from google.cloud import bigquery
 import os
 
-from historical_backtest_engine import HistoricalBacktestEngine
-from lean_adapter import LEANAdapter
+from app.services.historical_backtest_engine import HistoricalBacktestEngine
+from app.services.lean_adapter import LEANAdapter
 
 
 class BacktestOrchestrator:
@@ -32,10 +32,10 @@ class BacktestOrchestrator:
         
         if os.getenv('ENABLE_BIGQUERY') == 'True' and os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
             try:
-                self.bq_client = postgres.Client()
-                print("✅ PostgreSQL client initialized")
+                self.bq_client = bigquery.Client()
+                print("✅ BigQuery client initialized")
             except Exception as e:
-                print(f"⚠️  PostgreSQL initialization failed: {e}")
+                print(f"⚠️  BigQuery initialization failed: {e}")
                 self.bq_client = None
     
     async def run_strategy_backtest(
