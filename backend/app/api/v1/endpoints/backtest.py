@@ -17,8 +17,8 @@ from app.db.session import get_db
 from sqlalchemy.orm import Session
 from app.services.strategy_db import save_strategy, save_backtest, update_backtest_results, get_backtest
 
-# Import worker (to be created)
-# from lean_engine.worker.backtest_worker import BacktestWorker
+# Import LEAN worker
+from lean_engine.worker.backtest_worker import get_backtest_worker
 
 router = APIRouter(tags=["Backtest"])
 
@@ -397,7 +397,7 @@ async def list_backtests(
 
 async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
     """
-    Execute backtest in background
+    Execute backtest in background using LEAN engine
     
     Args:
         backtest_id: Backtest identifier
@@ -406,27 +406,25 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
     try:
         # Update status to running
         backtest_jobs[backtest_id]['status'] = 'running'
-        backtest_jobs[backtest_id]['message'] = 'Executing backtest...'
-        backtest_jobs[backtest_id]['progress_pct'] = 10
+        backtest_jobs[backtest_id]['message'] = 'Initializing LEAN engine...'
+        backtest_jobs[backtest_id]['progress_pct'] = 5
         
-        # TODO: Initialize LEAN worker
-        # worker = BacktestWorker()
+        # Get LEAN worker instance
+        worker = get_backtest_worker()
         
-        # For now, simulate execution with mock data
-        await asyncio.sleep(2)  # Simulate processing
+        # Define progress callback
+        def update_progress(progress_pct: float, message: str):
+            backtest_jobs[backtest_id]['progress_pct'] = progress_pct
+            backtest_jobs[backtest_id]['message'] = message
+            print(f"📊 Backtest {backtest_id}: {progress_pct}% - {message}")
         
-        backtest_jobs[backtest_id]['progress_pct'] = 50
-        backtest_jobs[backtest_id]['message'] = 'Processing trades...'
-        
-        await asyncio.sleep(2)
-        
-        backtest_jobs[backtest_id]['progress_pct'] = 80
-        backtest_jobs[backtest_id]['message'] = 'Calculating metrics...'
-        
-        await asyncio.sleep(1)
-        
-        # Generate mock result (would be real LEAN output in production)
-        result = _generate_mock_result(backtest_id, request)
+        # Execute backtest with LEAN engine
+        print(f"🚀 Starting LEAN backtest {backtest_id}...")
+        result = worker.execute_backtest(
+            backtest_id=backtest_id,
+            request=request,
+            progress_callback=update_progress
+        )
         
         # Update job with results (in-memory)
         backtest_jobs[backtest_id]['status'] = 'completed'
@@ -444,7 +442,7 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
             
             update_backtest_results(backtest_id, {
                 "status": "completed",
-                "execution_time_seconds": 5,
+                "execution_time_seconds": result.execution_time_seconds,
                 "start_date": result.start_date,
                 "end_date": result.end_date,
                 "initial_capital": result.initial_capital or 100000,
@@ -488,87 +486,3 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
         print(f"❌ Backtest {backtest_id} failed: {error_msg}")
         import traceback
         traceback.print_exc()
-
-
-def _generate_mock_result(backtest_id: str, request: BacktestRequest) -> BacktestResponse:
-    """
-    Generate mock backtest result for testing
-    
-    In production, this would parse actual LEAN output.
-    
-    Args:
-        backtest_id: Backtest identifier
-        request: Original request
-    
-    Returns:
-        BacktestResponse with mock data
-    """
-    from app.schemas.backtest_response import (
-        BacktestSummary, EquityCurve, Trade
-    )
-    
-    # Mock summary metrics
-    summary = BacktestSummary(
-        total_return=0.847,
-        cagr=0.0623,
-        volatility=0.182,
-        sharpe_ratio=1.23,
-        sortino_ratio=1.67,
-        max_drawdown=-0.234,
-        romad=0.266,
-        alpha=0.032,
-        beta=0.87,
-        information_ratio=0.45,
-        var_95=-0.023,
-        cvar_95=-0.031,
-        win_rate_daily=0.54,
-        win_rate_monthly=0.61,
-        win_rate_yearly=0.70,
-        best_day=0.068,
-        worst_day=-0.052,
-        benchmark_total_return=0.612,
-        benchmark_cagr=0.048
-    )
-    
-    # Mock equity curve
-    equity_curve = EquityCurve(
-        dates=["2013-01-01", "2013-06-30", "2013-12-31"],
-        portfolio_values=[1000000, 1120000, 1247000],
-        benchmark_values=[1000000, 1085000, 1152000]
-    )
-    
-    # Mock trades
-    trades = [
-        Trade(
-            entry_date="2013-03-15",
-            exit_date="2013-09-22",
-            ticker="AAPL",
-            entry_price=62.35,
-            exit_price=71.20,
-            shares=801.6,
-            pnl=7091.16,
-            return_pct=0.142,
-            holding_period_days=191,
-            exit_reason="trailing_stop",
-            signal_type="doubling_down",
-            conviction_score=72.5,
-            rank=3
-        )
-    ]
-    
-    return BacktestResponse(
-        backtest_id=backtest_id,
-        status='completed',
-        execution_time_seconds=5.3,
-        summary=summary,
-        equity_curve=equity_curve,
-        trades=trades,
-        strategy_name=request.strategy_config.name,
-        start_date=str(request.strategy_config.backtest_period.start_date),
-        end_date=str(request.strategy_config.backtest_period.end_date),
-        initial_capital=request.strategy_config.initial_capital,
-        stocks_analyzed=["AAPL", "GOOGL", "MSFT", "AMZN"],
-        real_market_data={"data_source": "AlphaVantage", "api_calls": 42},
-        institutional_signals={"total_signals": 156, "buy_signals": 89, "sell_signals": 67}
-    )
-
