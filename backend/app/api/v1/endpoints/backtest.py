@@ -239,25 +239,48 @@ async def get_backtest_results(backtest_id: str):
     if db_result.get('status') in ['queued', 'running']:
         # Check how long it's been since creation (orphaned if > 10 minutes)
         from datetime import datetime, timedelta
-        created_at = db_result.get('created_at')
-        if isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
         
-        time_elapsed = datetime.utcnow() - created_at
-        
-        # If running for more than 10 minutes without being in memory, it's orphaned
-        if time_elapsed > timedelta(minutes=10):
-            # Mark as failed in database
-            update_backtest_results(backtest_id, {
-                "status": "failed",
-                "execution_time_seconds": 0,
-            })
-            raise HTTPException(
-                status_code=500,
-                detail="Backtest was interrupted (likely due to server restart). Please run it again."
-            )
-        else:
-            # Still legitimately running
+        try:
+            created_at = db_result.get('created_at')
+            if isinstance(created_at, str):
+                # Parse ISO format string
+                created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            elif not isinstance(created_at, datetime):
+                # If it's neither string nor datetime, can't check - assume it's running
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Backtest still {db_result.get('status')}"
+                )
+            
+            time_elapsed = datetime.utcnow() - created_at
+            
+            # If running for more than 10 minutes without being in memory, it's orphaned
+            if time_elapsed > timedelta(minutes=10):
+                # Mark as failed in database
+                try:
+                    update_backtest_results(backtest_id, {
+                        "status": "failed",
+                        "execution_time_seconds": 0,
+                    })
+                except Exception as e:
+                    print(f"Error marking backtest as failed: {e}")
+                
+                raise HTTPException(
+                    status_code=500,
+                    detail="Backtest was interrupted (likely due to server restart). Please run it again."
+                )
+            else:
+                # Still legitimately running
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Backtest still {db_result.get('status')}"
+                )
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
+        except Exception as e:
+            # If there's any error in the orphan detection, just say it's still running
+            print(f"Error checking orphaned status: {e}")
             raise HTTPException(
                 status_code=409,
                 detail=f"Backtest still {db_result.get('status')}"
@@ -413,28 +436,35 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
         backtest_jobs[backtest_id]['completed_at'] = datetime.utcnow()
         
         # Save results to database (CRITICAL: persists beyond server restarts)
-        update_backtest_results(backtest_id, {
-            "status": "completed",
-            "execution_time_seconds": 5,
-            "start_date": result.start_date,
-            "end_date": result.end_date,
-            "initial_capital": result.initial_capital,
-            "final_value": result.final_value,
-            "total_return": result.summary.total_return,
-            "sharpe_ratio": result.summary.sharpe_ratio,
-            "max_drawdown": result.summary.max_drawdown,
-            "win_rate": result.summary.win_rate_daily,
-            "alpha": result.summary.alpha,
-            "beta": result.summary.beta,
-            "stocks_analyzed": result.stocks_analyzed,
-            "real_market_data": result.real_market_data,
-            "institutional_signals": result.institutional_signals,
-            "summary_metrics": result.summary.dict(),
-            "equity_curve": result.equity_curve.dict() if result.equity_curve else {},
-            "trades": [t.dict() for t in result.trades] if result.trades else []
-        })
-        
-        print(f"✅ Backtest {backtest_id} completed and saved to database")
+        try:
+            print(f"🔄 Saving backtest {backtest_id} results to database...")
+            update_backtest_results(backtest_id, {
+                "status": "completed",
+                "execution_time_seconds": 5,
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+                "initial_capital": result.initial_capital,
+                "final_value": result.final_value,
+                "total_return": result.summary.total_return,
+                "sharpe_ratio": result.summary.sharpe_ratio,
+                "max_drawdown": result.summary.max_drawdown,
+                "win_rate": result.summary.win_rate_daily,
+                "alpha": result.summary.alpha,
+                "beta": result.summary.beta,
+                "stocks_analyzed": result.stocks_analyzed,
+                "real_market_data": result.real_market_data,
+                "institutional_signals": result.institutional_signals,
+                "summary_metrics": result.summary.dict(),
+                "equity_curve": result.equity_curve.dict() if result.equity_curve else {},
+                "trades": [t.dict() for t in result.trades] if result.trades else []
+            })
+            print(f"✅ Backtest {backtest_id} completed and saved to database")
+        except Exception as db_error:
+            print(f"❌ Failed to save backtest results to database: {db_error}")
+            import traceback
+            traceback.print_exc()
+            # Re-raise to trigger the outer exception handler
+            raise
     
     except Exception as e:
         # Handle errors
