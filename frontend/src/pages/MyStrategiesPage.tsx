@@ -237,7 +237,7 @@ const MyStrategiesPage: React.FC = () => {
                     </Link>
                     {strategy.latest_backtest && (
                       <Link
-                        to={`/backtest/${strategy.latest_backtest.backtest_id}`}
+                        to={`/results/${strategy.latest_backtest.backtest_id}`}
                         className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 text-center"
                       >
                         View Results
