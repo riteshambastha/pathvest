@@ -116,7 +116,7 @@ async def run_backtest(
         'status': 'queued',
         'progress_pct': 0,
         'message': 'Backtest queued for execution',
-        'request': request.dict(),
+        'request': serialize_dates(request.dict()),  # Serialize dates here too
         'created_at': datetime.utcnow(),
         'result': None
     }
