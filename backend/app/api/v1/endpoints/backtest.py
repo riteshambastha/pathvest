@@ -383,17 +383,55 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
         # Generate mock result (would be real LEAN output in production)
         result = _generate_mock_result(backtest_id, request)
         
-        # Update job with results
+        # Update job with results (in-memory)
         backtest_jobs[backtest_id]['status'] = 'completed'
         backtest_jobs[backtest_id]['progress_pct'] = 100
         backtest_jobs[backtest_id]['message'] = 'Backtest completed successfully'
         backtest_jobs[backtest_id]['result'] = result
         backtest_jobs[backtest_id]['completed_at'] = datetime.utcnow()
+        
+        # Save results to database (CRITICAL: persists beyond server restarts)
+        update_backtest_results(backtest_id, {
+            "status": "completed",
+            "execution_time_seconds": 5,
+            "start_date": result.start_date,
+            "end_date": result.end_date,
+            "initial_capital": result.initial_capital,
+            "final_value": result.final_value,
+            "total_return": result.summary.total_return,
+            "sharpe_ratio": result.summary.sharpe_ratio,
+            "max_drawdown": result.summary.max_drawdown,
+            "win_rate": result.summary.win_rate_daily,
+            "alpha": result.summary.alpha,
+            "beta": result.summary.beta,
+            "stocks_analyzed": result.stocks_analyzed,
+            "real_market_data": result.real_market_data,
+            "institutional_signals": result.institutional_signals,
+            "summary_metrics": result.summary.dict(),
+            "equity_curve": result.equity_curve.dict() if result.equity_curve else {},
+            "trades": [t.dict() for t in result.trades] if result.trades else []
+        })
+        
+        print(f"✅ Backtest {backtest_id} completed and saved to database")
     
     except Exception as e:
         # Handle errors
+        error_msg = f'Backtest failed: {str(e)}'
         backtest_jobs[backtest_id]['status'] = 'failed'
-        backtest_jobs[backtest_id]['message'] = f'Backtest failed: {str(e)}'
+        backtest_jobs[backtest_id]['message'] = error_msg
+        
+        # Save failure to database
+        try:
+            update_backtest_results(backtest_id, {
+                "status": "failed",
+                "execution_time_seconds": 0,
+            })
+        except Exception as db_error:
+            print(f"Failed to save error status to DB: {db_error}")
+        
+        print(f"❌ Backtest {backtest_id} failed: {error_msg}")
+        import traceback
+        traceback.print_exc()
 
 
 def _generate_mock_result(backtest_id: str, request: BacktestRequest) -> BacktestResponse:
