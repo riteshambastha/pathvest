@@ -20,6 +20,9 @@ from app.schemas.backtest_response import (
     Trade,
     PositionHistory
 )
+from app.services.alphavantage_service import AlphaVantageService
+from app.services.sec_edgar_service import SECEdgarService
+from app.core.config import settings
 
 
 class BacktestWorker:
@@ -52,6 +55,10 @@ class BacktestWorker:
         self.data_dir = self.lean_project_dir / "data"
         self.results_dir = self.lean_project_dir / "results"
         
+        # Initialize API services
+        self.alpha_vantage = AlphaVantageService()
+        self.sec_edgar = SECEdgarService()
+        
         # Track API usage
         self.api_calls_made = 0
         self.sec_filings_fetched = 0
@@ -61,6 +68,10 @@ class BacktestWorker:
         self.strategies_dir.mkdir(parents=True, exist_ok=True)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
+        
+        print(f"✅ BacktestWorker initialized")
+        print(f"   AlphaVantage API: {'Configured' if settings.ALPHAVANTAGE_API_KEY else '⚠️ Missing (will use fallback)'}")
+        print(f"   SEC EDGAR: Configured (free access)")
     
     def execute_backtest(
         self,
