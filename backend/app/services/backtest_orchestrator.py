@@ -303,22 +303,23 @@ class BacktestOrchestrator:
             print(f"   Date range: {start_date} to {end_date}")
             
             # Query holdings from database for selected institutions
+            # Using ORM model column names: ticker (not ticker_symbol), shares_or_prn_amt (not shares)
             query = text("""
                 SELECT 
-                    h.ticker_symbol as ticker,
+                    h.ticker as ticker,
                     h.cusip,
-                    f.cik,
+                    i.cik,
                     f.period_of_report as filing_date,
                     h.value as market_value,
-                    h.shares as shares_held
+                    h.shares_or_prn_amt as shares_held
                 FROM holdings h
                 JOIN filings f ON h.filing_id = f.id
                 JOIN institutions i ON f.institution_id = i.id
                 WHERE i.cik = ANY(:ciks)
                     AND f.period_of_report >= :start_date
                     AND f.period_of_report <= :end_date
-                    AND h.ticker_symbol IS NOT NULL
-                    AND h.ticker_symbol != ''
+                    AND h.ticker IS NOT NULL
+                    AND h.ticker != ''
                 ORDER BY f.period_of_report, h.value DESC
             """)
             
