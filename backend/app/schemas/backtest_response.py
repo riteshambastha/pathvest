@@ -123,6 +123,11 @@ class BacktestResponse(BaseModel):
     end_date: Optional[str] = Field(None, description="Backtest end date")
     initial_capital: Optional[float] = Field(None, description="Initial capital")
     
+    # Additional data (for database storage)
+    stocks_analyzed: Optional[List[str]] = Field(None, description="List of stock tickers analyzed")
+    real_market_data: Optional[Dict] = Field(None, description="Real market data used")
+    institutional_signals: Optional[Dict] = Field(None, description="Institutional trading signals")
+    
     class Config:
         json_schema_extra = {
             "example": {
