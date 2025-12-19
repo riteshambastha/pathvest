@@ -249,7 +249,8 @@ class BacktestWorker:
         progress_callback: Optional[callable] = None
     ):
         """
-        Fetch required SEC filings and market data
+        Fetch required SEC filings and market data from DATABASE
+        NO HARDCODED VALUES - Uses real institutional holdings data
         
         Args:
             request: BacktestRequest
@@ -270,39 +271,93 @@ class BacktestWorker:
         # Store for later use in _parse_lean_results
         self._last_institution_count = len(institution_ciks)
         
-        print(f"📊 Fetching data for {len(institution_ciks)} institutions...")
+        print(f"📊 Fetching REAL data for {len(institution_ciks)} institutions from database...")
         
-        # TODO: Real implementation (when enabled):
-        # 1. Query SEC EDGAR API for 13F filings: self.sec_edgar.get_13f_filings(cik, quarters)
-        # 2. Extract holdings from filings: actual stock tickers/cusips
-        # 3. Query AlphaVantage for price data: self.alpha_vantage.get_historical_data(ticker, start, end)
-        # 4. Track actual API calls made
+        if not institution_ciks:
+            print("⚠️ No institutions selected, cannot fetch holdings")
+            self.stocks_analyzed_list = []
+            self.api_calls_made = 0
+            self.sec_filings_fetched = 0
+            return
         
-        # For MVP, simulate data fetching with realistic calculations
-        if institution_ciks:
-            # Calculate SEC filings based on actual parameters
+        # Fetch REAL institutional holdings from database
+        try:
+            from app.services.strategy_db import SessionLocal
+            from sqlalchemy import text
+            
+            db = SessionLocal()
+            
+            # Query for REAL holdings within backtest period
+            start_date = config.backtest_period.start_date
+            end_date = config.backtest_period.end_date
             quarters = config.universe_filters.lookback_quarters
-            self.sec_filings_fetched = len(institution_ciks) * quarters
             
-            # Simulate stock universe from typical institutional portfolio
-            # In reality, this would come from parsing 13F holdings
-            # Average institution holds 50-200 positions, we'll use top 8 for speed
-            self.stocks_analyzed_list = ["AAPL", "GOOGL", "MSFT", "AMZN", "NVDA", "META", "TSLA", "BRK.B"]
+            # Calculate lookback date based on quarters
+            from datetime import timedelta
+            lookback_date = start_date - timedelta(days=quarters * 91)  # ~91 days per quarter
             
-            # Calculate API calls based on actual backtest period
-            # Formula: num_stocks × trading_days (assuming batch fetching reduces calls)
-            days = (config.backtest_period.end_date - config.backtest_period.start_date).days
+            # Query REAL SEC holdings from database
+            query = text("""
+                SELECT DISTINCT
+                    h.cusip,
+                    h.ticker,
+                    COUNT(DISTINCT f.filing_id) as filing_count
+                FROM sec_holdings_13f h
+                JOIN sec_filings_13f f ON h.filing_id = f.filing_id
+                WHERE f.cik = ANY(:ciks)
+                    AND f.filing_date BETWEEN :lookback_date AND :end_date
+                    AND h.ticker IS NOT NULL
+                    AND h.ticker != ''
+                GROUP BY h.cusip, h.ticker
+                ORDER BY filing_count DESC
+                LIMIT 100
+            """)
+            
+            result = db.execute(query, {
+                "ciks": institution_ciks,
+                "lookback_date": lookback_date,
+                "end_date": end_date
+            })
+            
+            holdings = result.fetchall()
+            db.close()
+            
+            # Extract REAL stock tickers from database
+            self.stocks_analyzed_list = [row.ticker for row in holdings if row.ticker]
+            
+            # Count REAL filings from database
+            filing_query = text("""
+                SELECT COUNT(DISTINCT filing_id) as filing_count
+                FROM sec_filings_13f
+                WHERE cik = ANY(:ciks)
+                    AND filing_date BETWEEN :lookback_date AND :end_date
+            """)
+            
+            db = SessionLocal()
+            filing_result = db.execute(filing_query, {
+                "ciks": institution_ciks,
+                "lookback_date": lookback_date,
+                "end_date": end_date
+            })
+            self.sec_filings_fetched = filing_result.scalar() or 0
+            db.close()
+            
+            # Calculate API calls based on ACTUAL stocks found
+            days = (end_date - start_date).days
             trading_days = int(days * (252/365))  # Approximate trading days
             # Batch API calls: 1 call per stock per 100 days (with batching)
             self.api_calls_made = len(self.stocks_analyzed_list) * max(1, trading_days // 100)
             
-            print(f"✅ Would fetch {self.sec_filings_fetched} SEC filings ({len(institution_ciks)} institutions × {quarters} quarters)")
-            print(f"✅ Would make ~{self.api_calls_made} API calls ({len(self.stocks_analyzed_list)} stocks × {trading_days} trading days ÷ 100 batch size)")
-            print(f"✅ Analyzing {len(self.stocks_analyzed_list)} stocks from institutional portfolios")
-        else:
-            print("⚠️ No institutions selected, using default benchmark universe")
-            self.stocks_analyzed_list = ["SPY", "QQQ", "DIA"]  # Market benchmarks
-            self.api_calls_made = 30  # Minimal calls for benchmarks
+            print(f"✅ Found {self.sec_filings_fetched} REAL SEC filings in database")
+            print(f"✅ Extracted {len(self.stocks_analyzed_list)} REAL stocks from institutional holdings")
+            print(f"✅ Would make ~{self.api_calls_made} API calls for price data ({len(self.stocks_analyzed_list)} stocks × {trading_days} trading days ÷ 100 batch)")
+            
+        except Exception as e:
+            print(f"⚠️ Could not fetch real holdings from database: {e}")
+            print(f"⚠️ Database may be empty. Please seed SEC data first.")
+            # Fallback: empty lists instead of hardcoded values
+            self.stocks_analyzed_list = []
+            self.api_calls_made = 0
             self.sec_filings_fetched = 0
     
     def _run_lean_backtest(

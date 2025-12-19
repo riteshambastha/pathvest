@@ -561,7 +561,7 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
         )
     ]
     
-    # Simulate data tracking with realistic calculations
+    # Fetch REAL data from database - NO HARDCODED VALUES
     selected_institutions = []
     config_dict = config.dict()
     
@@ -571,23 +571,77 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
     elif 'selected_institutions' in config_dict:
         selected_institutions = config_dict['selected_institutions']
     
-    # Calculate simulated metrics based on actual strategy parameters
-    quarters = getattr(config.universe_filters, 'lookback_quarters', 4)
-    simulated_sec_filings = len(selected_institutions) * quarters if selected_institutions else 0
-    
-    # Calculate API calls based on backtest period and stock count
-    # Formula: num_stocks × (trading_days ÷ batch_size)
-    if selected_institutions:
-        days = (config.backtest_period.end_date - config.backtest_period.start_date).days
-        trading_days = int(days * (252/365))  # Approximate trading days from calendar days
-        typical_stocks_per_institution = 8  # Average top positions tracked
-        total_stocks = len(selected_institutions) * typical_stocks_per_institution
-        # Batch API calls: 1 call per stock per 100 trading days
-        simulated_api_calls = max(total_stocks, total_stocks * (trading_days // 100))
-        stocks = [f"Stock{i+1}" for i in range(min(total_stocks, 20))]  # Placeholder tickers
+    if not selected_institutions:
+        print("⚠️ No institutions selected in fallback mode")
+        simulated_sec_filings = 0
+        simulated_api_calls = 0
+        stocks = []
     else:
-        simulated_api_calls = 30  # Benchmark ETFs
-        stocks = ["SPY", "QQQ", "DIA"]
+        # Query REAL holdings from database
+        try:
+            from app.services.strategy_db import SessionLocal
+            from sqlalchemy import text
+            from datetime import timedelta
+            
+            db = SessionLocal()
+            
+            # Calculate date range
+            start_date = config.backtest_period.start_date
+            end_date = config.backtest_period.end_date
+            quarters = getattr(config.universe_filters, 'lookback_quarters', 4)
+            lookback_date = start_date - timedelta(days=quarters * 91)
+            
+            # Query REAL holdings
+            query = text("""
+                SELECT DISTINCT h.ticker
+                FROM sec_holdings_13f h
+                JOIN sec_filings_13f f ON h.filing_id = f.filing_id
+                WHERE f.cik = ANY(:ciks)
+                    AND f.filing_date BETWEEN :lookback_date AND :end_date
+                    AND h.ticker IS NOT NULL
+                    AND h.ticker != ''
+                LIMIT 50
+            """)
+            
+            result = db.execute(query, {
+                "ciks": selected_institutions,
+                "lookback_date": lookback_date,
+                "end_date": end_date
+            })
+            
+            stocks = [row.ticker for row in result.fetchall()]
+            
+            # Count REAL filings
+            filing_query = text("""
+                SELECT COUNT(DISTINCT filing_id)
+                FROM sec_filings_13f
+                WHERE cik = ANY(:ciks)
+                    AND filing_date BETWEEN :lookback_date AND :end_date
+            """)
+            
+            filing_result = db.execute(filing_query, {
+                "ciks": selected_institutions,
+                "lookback_date": lookback_date,
+                "end_date": end_date
+            })
+            
+            simulated_sec_filings = filing_result.scalar() or 0
+            db.close()
+            
+            # Calculate API calls based on REAL stock count
+            days = (end_date - start_date).days
+            trading_days = int(days * (252/365))
+            simulated_api_calls = len(stocks) * max(1, trading_days // 100)
+            
+            print(f"✅ Fallback: Found {len(stocks)} REAL stocks, {simulated_sec_filings} REAL filings from database")
+            
+        except Exception as e:
+            print(f"⚠️ Fallback: Could not query database: {e}")
+            print(f"⚠️ Database may be empty. Please seed SEC data.")
+            # Return empty instead of hardcoded
+            simulated_sec_filings = 0
+            simulated_api_calls = 0
+            stocks = []
     
     return BacktestResponse(
         backtest_id=backtest_id,
