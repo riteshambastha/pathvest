@@ -14,6 +14,7 @@ from app.schemas.backtest_request import BacktestRequest
 from app.schemas.backtest_response import BacktestResponse, BacktestStatus
 from app.db.session import get_db
 from sqlalchemy.orm import Session
+from app.services.strategy_db import save_strategy, save_backtest, update_backtest_results
 
 # Import worker (to be created)
 # from lean_engine.worker.backtest_worker import BacktestWorker
@@ -65,9 +66,26 @@ async def run_backtest(
             detail="initial_capital must be positive"
         )
     
+    # Save strategy to database
+    strategy_name = request.strategy_config.strategy_name or f"Strategy {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+    selected_institutions = request.strategy_config.stock_selection.selected_institutions or []
+    strategy_id = save_strategy(
+        name=strategy_name,
+        config=request.strategy_config.dict(),
+        selected_institutions=selected_institutions
+    )
+    
+    # Save backtest to database
+    save_backtest(
+        backtest_id=backtest_id,
+        strategy_id=strategy_id,
+        config=request.strategy_config.dict()
+    )
+    
     # Create job record
     job_record = {
         'backtest_id': backtest_id,
+        'strategy_id': strategy_id,
         'status': 'queued',
         'progress_pct': 0,
         'message': 'Backtest queued for execution',
