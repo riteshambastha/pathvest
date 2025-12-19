@@ -26,15 +26,15 @@ const BacktestResultsPage: React.FC = () => {
 
   useEffect(() => {
     if (backtestId) {
-      // Start minimum loading time timer
+      // Start minimum loading time timer - 60 seconds
       const timer = setTimeout(() => {
         setMinLoadingTimeElapsed(true);
-      }, 1500); // 1.5 seconds
+      }, 60000); // 60 seconds
       
-      // After 3 seconds, allow manual close
+      // After 10 seconds, allow manual close
       const manualCloseTimer = setTimeout(() => {
         setCanManuallyClose(true);
-      }, 3000);
+      }, 10000); // 10 seconds
       
       loadResults();
       
@@ -48,7 +48,7 @@ const BacktestResultsPage: React.FC = () => {
   const loadResults = async () => {
     try {
       const startTime = Date.now();
-      const MIN_LOADING_TIME = 1500; // Show loading for at least 1.5 seconds
+      const MIN_LOADING_TIME = 60000; // Show loading for at least 60 seconds
       
       // Poll for completion if backtest is still running
       let attempts = 0;
@@ -379,7 +379,8 @@ const BacktestResultsPage: React.FC = () => {
 
           {/* Time Estimate */}
           <div className="mt-4 text-center text-xs text-gray-500">
-            <p>⏱️ Estimated time: 2-3 minutes | Thank you for your patience</p>
+            <p>⏱️ Estimated time: 1-3 minutes for data fetching | Minimum display: 60 seconds</p>
+            <p className="mt-1 text-gray-400">Manual close available after 10 seconds</p>
           </div>
         </div>
       </div>
