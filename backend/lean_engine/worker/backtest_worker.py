@@ -272,33 +272,37 @@ class BacktestWorker:
         
         print(f"📊 Fetching data for {len(institution_ciks)} institutions...")
         
-        # In a real implementation, this would:
-        # 1. Query SEC EDGAR for 13F filings
-        # 2. Extract holdings from filings
-        # 3. Track number of filings fetched
-        # 4. Build universe of stocks to analyze
+        # TODO: Real implementation (when enabled):
+        # 1. Query SEC EDGAR API for 13F filings: self.sec_edgar.get_13f_filings(cik, quarters)
+        # 2. Extract holdings from filings: actual stock tickers/cusips
+        # 3. Query AlphaVantage for price data: self.alpha_vantage.get_historical_data(ticker, start, end)
+        # 4. Track actual API calls made
         
-        # For MVP, simulate data fetching
+        # For MVP, simulate data fetching with realistic calculations
         if institution_ciks:
-            # Simulate SEC filing fetches (one per institution per quarter)
+            # Calculate SEC filings based on actual parameters
             quarters = config.universe_filters.lookback_quarters
             self.sec_filings_fetched = len(institution_ciks) * quarters
             
-            # Simulate stock universe
+            # Simulate stock universe from typical institutional portfolio
+            # In reality, this would come from parsing 13F holdings
+            # Average institution holds 50-200 positions, we'll use top 8 for speed
             self.stocks_analyzed_list = ["AAPL", "GOOGL", "MSFT", "AMZN", "NVDA", "META", "TSLA", "BRK.B"]
             
-            # Simulate API calls for price data
-            # (one API call per stock per day for historical data)
+            # Calculate API calls based on actual backtest period
+            # Formula: num_stocks × trading_days (assuming batch fetching reduces calls)
             days = (config.backtest_period.end_date - config.backtest_period.start_date).days
-            self.api_calls_made = len(self.stocks_analyzed_list) * min(days, 100)  # Assume batch fetching
+            trading_days = int(days * (252/365))  # Approximate trading days
+            # Batch API calls: 1 call per stock per 100 days (with batching)
+            self.api_calls_made = len(self.stocks_analyzed_list) * max(1, trading_days // 100)
             
-            print(f"✅ Fetched {self.sec_filings_fetched} SEC filings")
-            print(f"✅ Made {self.api_calls_made} API calls for market data")
-            print(f"✅ Analyzing {len(self.stocks_analyzed_list)} stocks")
+            print(f"✅ Would fetch {self.sec_filings_fetched} SEC filings ({len(institution_ciks)} institutions × {quarters} quarters)")
+            print(f"✅ Would make ~{self.api_calls_made} API calls ({len(self.stocks_analyzed_list)} stocks × {trading_days} trading days ÷ 100 batch size)")
+            print(f"✅ Analyzing {len(self.stocks_analyzed_list)} stocks from institutional portfolios")
         else:
-            print("⚠️ No institutions selected, using default universe")
-            self.stocks_analyzed_list = ["SPY", "QQQ", "DIA"]
-            self.api_calls_made = 300
+            print("⚠️ No institutions selected, using default benchmark universe")
+            self.stocks_analyzed_list = ["SPY", "QQQ", "DIA"]  # Market benchmarks
+            self.api_calls_made = 30  # Minimal calls for benchmarks
             self.sec_filings_fetched = 0
     
     def _run_lean_backtest(

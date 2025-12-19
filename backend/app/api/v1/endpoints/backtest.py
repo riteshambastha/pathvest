@@ -561,7 +561,7 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
         )
     ]
     
-    # Simulate data tracking
+    # Simulate data tracking with realistic calculations
     selected_institutions = []
     config_dict = config.dict()
     
@@ -571,11 +571,23 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
     elif 'selected_institutions' in config_dict:
         selected_institutions = config_dict['selected_institutions']
     
-    # Calculate simulated API calls and SEC filings
+    # Calculate simulated metrics based on actual strategy parameters
     quarters = getattr(config.universe_filters, 'lookback_quarters', 4)
     simulated_sec_filings = len(selected_institutions) * quarters if selected_institutions else 0
-    simulated_api_calls = len(selected_institutions) * 50 if selected_institutions else 200  # Mock calculation
-    stocks = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META"] if selected_institutions else ["SPY", "QQQ"]
+    
+    # Calculate API calls based on backtest period and stock count
+    # Formula: num_stocks × (trading_days ÷ batch_size)
+    if selected_institutions:
+        days = (config.backtest_period.end_date - config.backtest_period.start_date).days
+        trading_days = int(days * (252/365))  # Approximate trading days from calendar days
+        typical_stocks_per_institution = 8  # Average top positions tracked
+        total_stocks = len(selected_institutions) * typical_stocks_per_institution
+        # Batch API calls: 1 call per stock per 100 trading days
+        simulated_api_calls = max(total_stocks, total_stocks * (trading_days // 100))
+        stocks = [f"Stock{i+1}" for i in range(min(total_stocks, 20))]  # Placeholder tickers
+    else:
+        simulated_api_calls = 30  # Benchmark ETFs
+        stocks = ["SPY", "QQQ", "DIA"]
     
     return BacktestResponse(
         backtest_id=backtest_id,
