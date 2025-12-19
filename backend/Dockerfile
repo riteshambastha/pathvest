@@ -47,7 +47,8 @@ ENV PATH=/root/.local/bin:$PATH
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYTHONPATH=/app:/app/backend:$PYTHONPATH
+ENV WORKDIR=/app
 
 # Expose port
 EXPOSE 8000
@@ -57,5 +58,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')"
 
 # Run the application
+# Note: PYTHONPATH is set to include both /app and /app/backend for lean_engine imports
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 

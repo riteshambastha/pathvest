@@ -1,0 +1,31 @@
+services:
+  # Backend API
+  - type: web
+    name: pathvest-backend
+    env: python
+    region: oregon
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && bash start.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: PYTHONPATH
+        value: /opt/render/project/src/backend
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pathvest-db
+          property: connectionString
+      - key: ALPHAVANTAGE_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://pathvest.vercel.app,http://localhost:3000
+    healthCheckPath: /health
+    
+databases:
+  - name: pathvest-db
+    databaseName: pathvest
+    user: pathvest
+    region: oregon
+
