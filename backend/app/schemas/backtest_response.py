@@ -123,10 +123,14 @@ class BacktestResponse(BaseModel):
     end_date: Optional[str] = Field(None, description="Backtest end date")
     initial_capital: Optional[float] = Field(None, description="Initial capital")
     
-    # Additional data (for database storage)
+    # Data tracking (top-level for easy access)
+    api_calls_made: Optional[int] = Field(None, description="Number of external API calls made")
+    sec_filings_fetched: Optional[int] = Field(None, description="Number of SEC filings fetched")
     stocks_analyzed: Optional[List[str]] = Field(None, description="List of stock tickers analyzed")
-    real_market_data: Optional[Dict] = Field(None, description="Real market data used")
-    institutional_signals: Optional[Dict] = Field(None, description="Institutional trading signals")
+    
+    # Additional nested data (for database storage)
+    real_market_data: Optional[Dict] = Field(None, description="Real market data metadata")
+    institutional_signals: Optional[Dict] = Field(None, description="Institutional trading signals metadata")
     
     class Config:
         json_schema_extra = {

@@ -409,10 +409,15 @@ class BacktestWorker:
             start_date=str(request.strategy_config.backtest_period.start_date),
             end_date=str(request.strategy_config.backtest_period.end_date),
             initial_capital=request.strategy_config.initial_capital,
+            # Add top-level fields for frontend
+            api_calls_made=self.api_calls_made,
+            sec_filings_fetched=self.sec_filings_fetched,
             stocks_analyzed=self.stocks_analyzed_list,
+            # Keep nested metadata for detailed tracking
             real_market_data={
                 "data_source": "AlphaVantage",
-                "api_calls": self.api_calls_made
+                "api_calls": self.api_calls_made,
+                "stocks_count": len(self.stocks_analyzed_list)
             },
             institutional_signals={
                 "sec_filings_fetched": self.sec_filings_fetched,

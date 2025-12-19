@@ -68,6 +68,7 @@ class Backtest(Base):
     sharpe_ratio = Column(Float, nullable=True)
     max_drawdown = Column(Float, nullable=True)
     api_calls_made = Column(Integer, nullable=True)
+    sec_filings_fetched = Column(Integer, nullable=True)  # Track SEC data usage
     stocks_analyzed = Column(ARRAY(String) if is_postgres else Text, nullable=True)
     real_market_data = Column(JSON if is_postgres else Text, nullable=True)
     institutional_signals = Column(JSON if is_postgres else Text, nullable=True)
@@ -165,6 +166,7 @@ def update_backtest_results(backtest_id: str, results: dict) -> None:
             backtest.sharpe_ratio = results.get("sharpe_ratio")
             backtest.max_drawdown = results.get("max_drawdown")
             backtest.api_calls_made = results.get("api_calls_made")
+            backtest.sec_filings_fetched = results.get("sec_filings_fetched")
             
             # For PostgreSQL: pass as native types (list/dict)
             # For SQLite: convert to JSON strings
@@ -288,6 +290,7 @@ def get_backtest(backtest_id: str) -> dict:
             "sharpe_ratio": backtest.sharpe_ratio,
             "max_drawdown": backtest.max_drawdown,
             "api_calls_made": backtest.api_calls_made,
+            "sec_filings_fetched": backtest.sec_filings_fetched,
             "stocks_analyzed": stocks_analyzed or [],
             "real_market_data": real_market_data or {},
             "institutional_signals": institutional_signals or {},
@@ -298,6 +301,47 @@ def get_backtest(backtest_id: str) -> dict:
             "created_at": backtest.created_at.isoformat(),
             "completed_at": backtest.completed_at.isoformat() if backtest.completed_at else None
         }
+    finally:
+        db.close()
+
+
+def delete_strategy(strategy_id: int) -> bool:
+    """
+    Delete a strategy and all its associated backtests
+    
+    Args:
+        strategy_id: Strategy ID to delete
+    
+    Returns:
+        bool: True if deletion was successful, False otherwise
+    """
+    db = SessionLocal()
+    try:
+        # Find the strategy
+        strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+        
+        if not strategy:
+            print(f"❌ Strategy {strategy_id} not found")
+            return False
+        
+        strategy_name = strategy.name
+        backtest_count = len(strategy.backtests)
+        
+        # Delete the strategy (cascades to backtests due to cascade="all, delete-orphan")
+        db.delete(strategy)
+        db.commit()
+        
+        print(f"✅ Deleted strategy '{strategy_name}' (ID: {strategy_id})")
+        print(f"✅ Cascade deleted {backtest_count} associated backtests")
+        
+        return True
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error deleting strategy {strategy_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
     finally:
         db.close()
 

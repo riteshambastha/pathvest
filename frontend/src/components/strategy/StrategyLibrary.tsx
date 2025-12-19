@@ -49,14 +49,22 @@ const StrategyLibrary: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Are you sure you want to delete this strategy?')) {
+    const strategy = strategies.find(s => s.id === id);
+    const strategyName = strategy?.name || 'this strategy';
+    
+    if (confirm(`Are you sure you want to delete "${strategyName}"? This will also delete all associated backtests and cannot be undone.`)) {
       try {
-        // TODO: Implement delete API call
-        // await apiClient.delete(`/api/v1/strategies/${id}`);
+        await apiClient.delete(`/api/v1/strategies/${id}`);
+        
+        // Remove from local state
         setStrategies((prev) => prev.filter((s) => s.id !== id));
-      } catch (err) {
+        
+        // Show success message
+        alert(`Successfully deleted "${strategyName}"`);
+      } catch (err: any) {
         console.error('Failed to delete strategy:', err);
-        alert('Failed to delete strategy');
+        const errorMessage = err.response?.data?.detail || 'Failed to delete strategy';
+        alert(`Error: ${errorMessage}`);
       }
     }
   };

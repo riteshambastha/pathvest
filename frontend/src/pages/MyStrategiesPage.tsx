@@ -41,6 +41,24 @@ const MyStrategiesPage: React.FC = () => {
     }
   };
 
+  const handleDeleteStrategy = async (strategyId: number, strategyName: string) => {
+    if (confirm(`Are you sure you want to delete "${strategyName}"? This will also delete all associated backtests and cannot be undone.`)) {
+      try {
+        await apiClient.delete(`/api/v1/strategies/${strategyId}`);
+        
+        // Remove from local state
+        setStrategies((prev) => prev.filter((s) => s.id !== strategyId));
+        
+        // Show success message
+        alert(`Successfully deleted "${strategyName}"`);
+      } catch (err: any) {
+        console.error('Failed to delete strategy:', err);
+        const errorMessage = err.response?.data?.detail || 'Failed to delete strategy';
+        alert(`Error: ${errorMessage}`);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -228,21 +246,29 @@ const MyStrategiesPage: React.FC = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2">
-                    <Link
-                      to={`/strategies/${strategy.id}`}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 text-center"
-                    >
-                      View Details
-                    </Link>
-                    {strategy.latest_backtest && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
                       <Link
-                        to={`/results/${strategy.latest_backtest.backtest_id}`}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 text-center"
+                        to={`/strategies/${strategy.id}`}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 text-center"
                       >
-                        View Results
+                        View Details
                       </Link>
-                    )}
+                      {strategy.latest_backtest && (
+                        <Link
+                          to={`/results/${strategy.latest_backtest.backtest_id}`}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 text-center"
+                        >
+                          View Results
+                        </Link>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteStrategy(strategy.id, strategy.name)}
+                      className="w-full px-4 py-2 border border-red-300 rounded-lg text-sm font-medium text-red-700 hover:bg-red-50 text-center"
+                    >
+                      🗑️ Delete Strategy
+                    </button>
                   </div>
                 </div>
               </div>
