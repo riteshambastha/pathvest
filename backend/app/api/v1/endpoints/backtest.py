@@ -563,8 +563,13 @@ def _generate_fallback_result(backtest_id: str, request: BacktestRequest) -> 'Ba
     
     # Simulate data tracking
     selected_institutions = []
-    if hasattr(config.stock_selection, 'selected_institutions'):
-        selected_institutions = config.stock_selection.selected_institutions or []
+    config_dict = config.dict()
+    
+    # Extract selected_institutions (same logic as run_backtest)
+    if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+        selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
+    elif 'selected_institutions' in config_dict:
+        selected_institutions = config_dict['selected_institutions']
     
     # Calculate simulated API calls and SEC filings
     quarters = getattr(config.universe_filters, 'lookback_quarters', 4)

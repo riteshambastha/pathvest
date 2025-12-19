@@ -257,10 +257,18 @@ class BacktestWorker:
         """
         config = request.strategy_config
         
-        # Extract institution CIKs from stock selection
+        # Extract institution CIKs from config dict
         institution_ciks = []
-        if hasattr(config.stock_selection, 'selected_institutions'):
-            institution_ciks = config.stock_selection.selected_institutions
+        config_dict = config.dict()
+        
+        # Handle different ways selected_institutions might be stored
+        if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+            institution_ciks = config_dict['stock_selection'].get('selected_institutions', [])
+        elif 'selected_institutions' in config_dict:
+            institution_ciks = config_dict['selected_institutions']
+        
+        # Store for later use in _parse_lean_results
+        self._last_institution_count = len(institution_ciks)
         
         print(f"📊 Fetching data for {len(institution_ciks)} institutions...")
         
@@ -422,7 +430,7 @@ class BacktestWorker:
             institutional_signals={
                 "sec_filings_fetched": self.sec_filings_fetched,
                 "total_signals": len(trades) * 2,  # Approximate
-                "institutions_tracked": len(getattr(request.strategy_config.stock_selection, 'selected_institutions', []))
+                "institutions_tracked": getattr(self, '_last_institution_count', 0)
             }
         )
     
