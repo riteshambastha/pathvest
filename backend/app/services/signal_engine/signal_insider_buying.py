@@ -51,7 +51,6 @@ class InsiderBuyingSignal:
         
         prev_quarter_end = current_quarter_end - timedelta(days=91)
         
-        from google.cloud import postgres
         query = f"""
             WITH quarterly_positions AS (
                 SELECT
@@ -115,13 +114,13 @@ class InsiderBuyingSignal:
             ORDER BY value_change_k DESC
         """
         
-        params = [
-            postgres.ScalarQueryParameter("cusip", "STRING", cusip),
-            postgres.ScalarQueryParameter("current_quarter_end", "DATE", current_quarter_end),
-            postgres.ScalarQueryParameter("prev_quarter_end", "DATE", prev_quarter_end),
-            postgres.ArrayQueryParameter("qualified_ciks", "STRING", qualified_investor_ciks),
-            postgres.ScalarQueryParameter("min_buy_value", "FLOAT64", min_buy_value)
-        ]
+        params = {
+            "cusip": cusip,
+            "current_quarter_end": current_quarter_end,
+            "prev_quarter_end": prev_quarter_end,
+            "qualified_ciks": qualified_investor_ciks,
+            "min_buy_value": min_buy_value
+        }
         
         try:
             results = await self.postgres_service.execute_query(query, params)

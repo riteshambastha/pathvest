@@ -18,17 +18,11 @@ except ImportError:
 # In-memory cache for institution names (CIK -> Name mapping)
 _institution_name_cache = {}
 
-# Database URL
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./pathvest_local.db")
+# Import database configuration from main app
+from app.db.database import engine, DATABASE_URL
 
 # Determine if we're using PostgreSQL or SQLite
 is_postgres = DATABASE_URL.startswith("postgresql")
-
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

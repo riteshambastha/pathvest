@@ -13,7 +13,6 @@ from typing import Dict, List, Optional, Union
 from datetime import date
 from dataclasses import dataclass
 import pandas as pd
-from google.cloud import postgres
 
 try:
     # Try relative imports first (for package usage)
@@ -56,12 +55,12 @@ class ExitOrchestrator:
     Users can configure which modules to enable and their priorities.
     """
     
-    def __init__(self, bq_client: Optional[postgres.Client] = None):
+    def __init__(self, postgres_service = None):
         """
         Initialize Exit Orchestrator
         
         Args:
-            bq_client: PostgreSQL client for data access
+            postgres_service: PostgreSQL service for data access
         """
         self.bq_client = bq_client
         
@@ -297,9 +296,10 @@ def test_exit_orchestrator():
     print("="*70)
     
     try:
-        # Initialize PostgreSQL client
-        client = postgres.Client()
-        print("✅ PostgreSQL client initialized")
+        # Initialize PostgreSQL service
+        from app.services.postgres_service import get_postgres_service
+        client = get_postgres_service()
+        print("✅ PostgreSQL service initialized")
     except Exception as e:
         print(f"⚠️  PostgreSQL not available: {e}")
         client = None

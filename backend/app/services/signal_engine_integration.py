@@ -6,7 +6,6 @@ Integrates comprehensive signal engine with backtesting workflow
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional
 import pandas as pd
-from google.cloud import postgres
 
 from app.services.signal_engine import (
     DoublingDownSignal,
@@ -27,7 +26,7 @@ class SignalEngineIntegration:
     Provides high-level interface for generating trading signals
     """
     
-    def __init__(self, bq_client: Optional[postgres.Client] = None):
+    def __init__(self, postgres_service = None):
         self.bq_client = bq_client
         
         # Initialize signal engine components
@@ -269,7 +268,7 @@ class SignalEngineIntegration:
 # Singleton instance
 _signal_engine_integration = None
 
-def get_signal_engine_integration(bq_client: Optional[postgres.Client] = None):
+def get_signal_engine_integration(postgres_service = None):
     """Get or create signal engine integration instance"""
     global _signal_engine_integration
     if _signal_engine_integration is None:

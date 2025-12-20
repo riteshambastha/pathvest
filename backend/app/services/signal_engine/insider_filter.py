@@ -6,7 +6,6 @@ Filters stocks based on Form 4 insider trading activity
 from typing import List, Dict, Any, Optional
 from datetime import date, timedelta
 from app.services.postgres_service import get_postgres_service
-from google.cloud import postgres
 
 
 class InsiderFilter:

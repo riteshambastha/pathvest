@@ -6,9 +6,24 @@ ENV/
 venv-lean/
 
 # Environment Variables
+# Ignore active .env files (contain secrets)
 .env
 .env.local
 .env.production
+backend/.env
+backend/.env.local
+backend/.env.production
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Keep these (safe to commit - templates and staging config)
+!.env.example
+!.env.staging
+!backend/.env.example
+!backend/.env.staging
+!frontend/.env.example
+!frontend/.env.staging
 
 # Python
 __pycache__/

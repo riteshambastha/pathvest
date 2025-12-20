@@ -2,6 +2,13 @@
 FastAPI Application Entry Point
 """
 
+# Load environment variables FIRST before any other imports
+from dotenv import load_dotenv
+import os
+load_dotenv()
+print("🚀🚀🚀 MAIN.PY LOADED - DOTENV LOADED 🚀🚀🚀")
+print(f"🔧 ALPHAVANTAGE_API_KEY: {os.getenv('ALPHAVANTAGE_API_KEY', 'NOT_SET')[:10]}...")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings

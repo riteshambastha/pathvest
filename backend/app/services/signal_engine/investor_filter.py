@@ -4,9 +4,8 @@ Filters institutional investors based on qualification criteria
 """
 
 from typing import List, Dict, Any, Optional
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from app.services.postgres_service import get_postgres_service
-from google.cloud import postgres
 
 
 class InvestorFilter:
@@ -38,9 +37,67 @@ class InvestorFilter:
         "state street", "northern trust"  # Major custodians
     ]
     
-    def __init__(self):
+    def __init__(self, aum_min=None, track_record_quarters=None, concentration_max=None, turnover_max=None, holdings_max=None, top10_min=None, postgres_service=None):
         """Initialize investor filter"""
+        self.postgres_service = postgres_service  # Only set if provided, lazy load otherwise
+
+        # Set filter criteria from parameters or defaults
+        self.aum_min = aum_min if aum_min is not None else self.DEFAULT_MIN_AUM
+        self.track_record_quarters = track_record_quarters if track_record_quarters is not None else self.DEFAULT_MIN_TRACK_RECORD_QUARTERS
+        self.concentration_max = concentration_max if concentration_max is not None else self.DEFAULT_MAX_CONCENTRATION
+        self.turnover_max = turnover_max if turnover_max is not None else self.DEFAULT_MAX_TURNOVER
+        self.holdings_max = holdings_max if holdings_max is not None else self.DEFAULT_MAX_HOLDINGS_COUNT
+        self.top10_min = top10_min if top10_min is not None else self.DEFAULT_MIN_TOP10_PERCENT
+
+    def _get_postgres_service(self):
+        """Get postgres service lazily"""
+        if self.postgres_service is None:
         self.postgres_service = get_postgres_service()
+        return self.postgres_service
+
+    def meets_aum_threshold(self, aum: float) -> bool:
+        """Check if AUM meets minimum threshold."""
+        return aum >= self.aum_min
+
+    def meets_track_record_threshold(self, quarters: int) -> bool:
+        """Check if track record meets minimum threshold."""
+        return quarters >= self.track_record_quarters
+
+    def meets_concentration_threshold(self, concentration: float) -> bool:
+        """Check if concentration is below maximum threshold."""
+        return concentration <= self.concentration_max
+
+    def meets_turnover_threshold(self, turnover: float) -> bool:
+        """Check if turnover is below maximum threshold."""
+        return turnover <= self.turnover_max
+
+    def has_sufficient_track_record(self, quarter_dates: list) -> bool:
+        """Check if investor has sufficient consecutive quarters of filings."""
+        if len(quarter_dates) < self.track_record_quarters:
+            return False
+        # Check if dates are consecutive quarters
+        sorted_dates = sorted(quarter_dates, reverse=True)  # Most recent first
+        for i in range(len(sorted_dates) - 1):
+            # Check if consecutive quarters (approximately 3 months apart)
+            months_diff = (sorted_dates[i] - sorted_dates[i + 1]).days / 30.44
+            if not (2.5 <= months_diff <= 3.5):  # Allow some flexibility
+                return False
+        return True
+
+    def meets_concentration_limit(self, portfolio: list, total_aum: float) -> bool:
+        """Check if any single position exceeds concentration limit."""
+        for position in portfolio:
+            concentration = position["value"] / total_aum
+            if concentration > self.concentration_max:
+                return False
+        return True
+
+    def meets_turnover_limit(self, purchases: float, sales: float, avg_portfolio_value: float) -> bool:
+        """Check if turnover is below maximum threshold."""
+        # Turnover = (Min(Purchases, Sales) * 2) / Avg Portfolio Value
+        min_trade = min(purchases, sales)
+        turnover = (min_trade * 2) / avg_portfolio_value
+        return turnover <= self.turnover_max
     
     async def get_qualified_investors(
         self,
@@ -67,7 +124,7 @@ class InvestorFilter:
         Returns:
             List of qualified investors with metrics
         """
-        if not self.postgres_service.is_available():
+        if not self._get_postgres_service().is_available():
             return self._get_mock_qualified_investors(as_of_date)
         
         # Calculate lookback period for track record
@@ -88,8 +145,8 @@ class InvestorFilter:
                         PARTITION BY i.cik 
                         ORDER BY f.filing_date DESC
                     ) as filing_recency_rank
-                FROM `{self.postgres_service._get_table_ref('sec_institutions')}` i
-                JOIN `{self.postgres_service._get_table_ref('sec_filings_13f')}` f
+                FROM `{self._get_postgres_service()._get_table_ref('sec_institutions')}` i
+                JOIN `{self._get_postgres_service()._get_table_ref('sec_filings_13f')}` f
                     ON i.cik = f.cik
                 WHERE f.filing_date <= @as_of_date
                     AND f.filing_date >= @lookback_start
@@ -117,7 +174,7 @@ class InvestorFilter:
                     h.value as position_value_k,
                     if2.aum_k as total_aum_k
                 FROM investor_filings if2
-                JOIN `{self.postgres_service._get_table_ref('sec_holdings_13f')}` h
+                JOIN `{self._get_postgres_service()._get_table_ref('sec_holdings_13f')}` h
                     ON if2.filing_id = h.filing_id
                 WHERE if2.filing_recency_rank = 1  -- Most recent filing only
             ),
@@ -183,19 +240,19 @@ class InvestorFilter:
             ORDER BY itr.latest_aum_k DESC
         """
         
-        params = [
-            postgres.ScalarQueryParameter("as_of_date", "DATE", as_of_date),
-            postgres.ScalarQueryParameter("lookback_start", "DATE", lookback_start),
-            postgres.ScalarQueryParameter("min_track_record_quarters", "INT64", min_track_record_quarters),
-            postgres.ScalarQueryParameter("min_aum", "FLOAT64", min_aum),
-            postgres.ScalarQueryParameter("max_concentration", "FLOAT64", max_concentration),
-            postgres.ScalarQueryParameter("max_holdings_count", "INT64", max_holdings_count),
-            postgres.ScalarQueryParameter("min_top10_percent", "FLOAT64", min_top10_percent),
-            postgres.ScalarQueryParameter("max_turnover", "FLOAT64", max_turnover)
-        ]
+        params = {
+            "as_of_date": as_of_date,
+            "lookback_start": lookback_start,
+            "min_track_record_quarters": min_track_record_quarters,
+            "min_aum": min_aum,
+            "max_concentration": max_concentration,
+            "max_holdings_count": max_holdings_count,
+            "min_top10_percent": min_top10_percent,
+            "max_turnover": max_turnover
+        }
         
         try:
-            results = await self.postgres_service.execute_query(query, params)
+            results = await self._get_postgres_service().execute_query(query, params)
             
             # Filter out passive/index funds by name
             qualified = [
@@ -257,13 +314,13 @@ class InvestorFilter:
         Returns:
             Dict with detailed metrics
         """
-        if not self.postgres_service.is_available():
+        if not self._get_postgres_service().is_available():
             return None
         
         lookback_start = as_of_date - timedelta(days=(lookback_quarters * 91))
         
         # Get filings for this investor
-        filings = await self.postgres_service.get_filings_by_cik(
+        filings = await self._get_postgres_service().get_filings_by_cik(
             cik,
             start_date=lookback_start,
             end_date=as_of_date
@@ -278,7 +335,7 @@ class InvestorFilter:
             return None
         
         # Get holdings for latest filing
-        holdings = await self.postgres_service.get_holdings_by_filing_id(
+        holdings = await self._get_postgres_service().get_holdings_by_filing_id(
             latest_filing["filing_id"]
         )
         

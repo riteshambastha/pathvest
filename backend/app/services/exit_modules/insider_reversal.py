@@ -12,7 +12,6 @@ Per SRS FR-3.1.C.11:
 from typing import Dict, List, Optional, Tuple
 from datetime import date, datetime, timedelta
 from dataclasses import dataclass
-from google.cloud import postgres
 import os
 
 
@@ -49,7 +48,7 @@ class InsiderReversalModule:
     DEFAULT_MIN_TRANSACTION_VALUE = 100_000  # $100K
     C_LEVEL_ROLES = ['CEO', 'CFO', 'COO', 'President', 'Chairman', 'Director']
     
-    def __init__(self, bq_client: Optional[postgres.Client] = None):
+    def __init__(self, postgres_service = None):
         """
         Initialize Insider Reversal Module
         
@@ -252,7 +251,8 @@ def test_insider_reversal_module():
     
     try:
         # Initialize PostgreSQL client
-        client = postgres.Client()
+        from app.services.postgres_service import get_postgres_service
+        client = get_postgres_service()
         print("✅ PostgreSQL client initialized")
     except Exception as e:
         print(f"⚠️  PostgreSQL not available: {e}")

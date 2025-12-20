@@ -6,7 +6,6 @@ Triggered when 1 Large Inst Buy AND 2+ Large Inst Followers
 from typing import List, Dict, Any, Optional
 from datetime import date, timedelta
 from app.services.postgres_service import get_postgres_service
-from google.cloud import postgres
 
 
 class HerdingSignal:
@@ -132,12 +131,12 @@ class HerdingSignal:
             ORDER BY value_change_k DESC
         """
         
-        params = [
-            postgres.ScalarQueryParameter("cusip", "STRING", cusip),
-            postgres.ScalarQueryParameter("current_quarter_end", "DATE", current_quarter_end),
-            postgres.ScalarQueryParameter("prev_quarter_end", "DATE", prev_quarter_end),
-            postgres.ArrayQueryParameter("qualified_ciks", "STRING", qualified_investor_ciks)
-        ]
+        params = {
+            "cusip": cusip,
+            "current_quarter_end": current_quarter_end,
+            "prev_quarter_end": prev_quarter_end,
+            "qualified_ciks": qualified_investor_ciks
+        }
         
         try:
             results = await self.postgres_service.execute_query(query, params)

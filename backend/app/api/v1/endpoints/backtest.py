@@ -514,25 +514,48 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
             selected_institutions = []
             config_dict = config.dict()
             
-            # Log what we received
+            # Log what we received - DETAILED DEBUGGING
+            print(f"\n🔍 ===== BACKEND RECEIVED CONFIG =====")
             print(f"🔍 Config dict keys: {list(config_dict.keys())}")
-            print(f"🔍 sub_universe_filters type: {type(config_dict.get('sub_universe_filters'))}")
-            print(f"🔍 sub_universe_filters content: {config_dict.get('sub_universe_filters')}")
-            
-            if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
-                selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
-                print(f"📍 Found institutions in stock_selection: {selected_institutions}")
-            elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
-                selected_institutions = config_dict['sub_universe_filters'].get('selected_institutions', [])
-                print(f"📍 Found institutions in sub_universe_filters: {selected_institutions}")
-            elif 'selected_institutions' in config_dict:
+
+            # Check all possible locations for institutions
+            print(f"🔍 Checking for selected_institutions...")
+            print(f"🔍   - Top level: {config_dict.get('selected_institutions', 'NOT FOUND')}")
+            print(f"🔍   - sub_universe_filters: {config_dict.get('sub_universe_filters', 'NOT FOUND')}")
+            print(f"🔍   - stock_selection: {config_dict.get('stock_selection', 'NOT FOUND')}")
+
+            # Look deeper into sub_universe_filters
+            if 'sub_universe_filters' in config_dict:
+                sub_universe = config_dict['sub_universe_filters']
+                print(f"🔍   - sub_universe_filters type: {type(sub_universe)}")
+                if isinstance(sub_universe, dict):
+                    print(f"🔍   - sub_universe_filters keys: {list(sub_universe.keys())}")
+                    print(f"🔍   - selected_institutions in sub_universe_filters: {sub_universe.get('selected_institutions', 'NOT FOUND')}")
+
+            # Try to extract institutions
+            selected_institutions = []
+            if 'selected_institutions' in config_dict:
                 selected_institutions = config_dict['selected_institutions']
-                print(f"📍 Found institutions at top level: {selected_institutions}")
+                print(f"✅ FOUND: Top level selected_institutions: {selected_institutions}")
+            elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
+                if 'selected_institutions' in config_dict['sub_universe_filters']:
+                    selected_institutions = config_dict['sub_universe_filters']['selected_institutions']
+                    print(f"✅ FOUND: sub_universe_filters.selected_institutions: {selected_institutions}")
+                else:
+                    print(f"❌ sub_universe_filters exists but no selected_institutions key")
+            elif 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+                if 'selected_institutions' in config_dict['stock_selection']:
+                    selected_institutions = config_dict['stock_selection']['selected_institutions']
+                    print(f"✅ FOUND: stock_selection.selected_institutions: {selected_institutions}")
+                else:
+                    print(f"❌ stock_selection exists but no selected_institutions key")
             else:
-                print(f"❌ Could not find institutions anywhere!")
-                print(f"❌ Full config: {json.dumps(config_dict, indent=2, default=str)}")
+                print(f"❌ Could not find selected_institutions in any expected location!")
+                print(f"❌ FULL CONFIG DUMP: {json.dumps(config_dict, indent=2, default=str)}")
             
-            print(f"📊 Using {len(selected_institutions)} institutions for custom backtest")
+            print(f"📊 FINAL RESULT: Using {len(selected_institutions) if selected_institutions else 0} institutions for backtest")
+            print(f"📊 Institutions: {selected_institutions}")
+            print(f"🔍 ===== END CONFIG DEBUG =====\n")
             
             # Define progress callback
             def update_progress(message: str, progress_pct: int, details: list = None):
@@ -843,31 +866,63 @@ def _convert_orchestrator_result_to_response(backtest_id: str, request: Backtest
         benchmark_values=equity_data.get('benchmark_values', [])
     )
     
-    # Extract trades
+    # Extract trades - handle different trade formats
     trades_data = result_dict.get('trades', [])
-    trades = [
-        Trade(
-            entry_date=t.get('entry_date'),
-            exit_date=t.get('exit_date'),
-            ticker=t.get('ticker'),
-            entry_price=t.get('entry_price'),
-            exit_price=t.get('exit_price'),
-            shares=t.get('shares'),
-            pnl=t.get('pnl'),
-            return_pct=t.get('return_pct'),
-            holding_period_days=t.get('holding_period_days'),
-            exit_reason=t.get('exit_reason', 'unknown'),
-            signal_type=t.get('signal_type', 'institutional'),
-            conviction_score=t.get('conviction_score', 50.0),
-            rank=t.get('rank', 0)
-        )
-        for t in trades_data
-    ]
+    trades = []
+    for t in trades_data:
+        try:
+            # Handle the format from HistoricalBacktestEngine (date, ticker, action, shares, price, cost)
+            if 'date' in t and 'entry_date' not in t:
+                date_str = t['date'].strftime('%Y-%m-%d') if hasattr(t['date'], 'strftime') else str(t['date'])[:10]
+                trade = Trade(
+                    entry_date=date_str,  # Always set entry_date for BUY trades
+                    exit_date=date_str if t.get('action') == 'SELL' else None,
+                    ticker=t.get('ticker', 'UNKNOWN'),
+                    entry_price=float(t.get('price', 1.0)),  # Default to 1.0 to avoid 0
+                    exit_price=float(t.get('price', 0)) if t.get('action') == 'SELL' else None,
+                    shares=float(t.get('shares', 0)),
+                    pnl=0.0,
+                    return_pct=0.0,
+                    holding_period_days=0,
+                    exit_reason=t.get('action', 'unknown'),
+                    signal_type='institutional',
+                    conviction_score=50.0,
+                    rank=0
+                )
+            else:
+                # Handle the original format (entry_date, exit_date, etc.)
+                trade = Trade(
+                    entry_date=t.get('entry_date') or '1970-01-01',
+                    exit_date=t.get('exit_date'),
+                    ticker=t.get('ticker', 'UNKNOWN'),
+                    entry_price=float(t.get('entry_price') or 1.0),
+                    exit_price=float(t.get('exit_price', 0)) if t.get('exit_price') else None,
+                    shares=float(t.get('shares', 0)),
+                    pnl=float(t.get('pnl', 0)),
+                    return_pct=float(t.get('return_pct', 0)),
+                    holding_period_days=t.get('holding_period_days', 0),
+                    exit_reason=t.get('exit_reason', 'unknown'),
+                    signal_type=t.get('signal_type', 'institutional'),
+                    conviction_score=float(t.get('conviction_score', 50.0)),
+                    rank=t.get('rank', 0)
+                )
+            trades.append(trade)
+        except Exception as e:
+            print(f"⚠️ Skipping trade due to error: {e}")
     
     # Extract data tracking fields
     api_calls = result_dict.get('api_calls_made', 0)
     sec_filings = result_dict.get('sec_filings_fetched', 0)
     stocks = result_dict.get('stocks_analyzed', [])
+
+    # Debug logging
+    print(f"🔍 API Response conversion:")
+    print(f"   api_calls: {api_calls}")
+    print(f"   sec_filings: {sec_filings}")
+    print(f"   stocks: {len(stocks) if stocks else 0}")
+    print(f"   result_dict keys: {list(result_dict.keys())}")
+    signals_in_result = result_dict.get('signals', [])
+    print(f"   signals in result: {len(signals_in_result) if signals_in_result else 0}")
     
     return BacktestResponse(
         backtest_id=backtest_id,

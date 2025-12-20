@@ -6,7 +6,6 @@ Filters stocks based on characteristics and transaction patterns
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import date, timedelta
 from app.services.postgres_service import get_postgres_service
-from google.cloud import postgres
 
 
 class StockFilter:
@@ -28,9 +27,30 @@ class StockFilter:
     DEFAULT_MIN_SHARE_INCREASE_PCT = 0.05  # 5%
     DEFAULT_MIN_AUM_PCT = 0.02  # 2%
     
-    def __init__(self):
+    def __init__(self, market_cap_min=None, index_membership=None, postgres_service=None):
         """Initialize stock filter"""
+        self.postgres_service = postgres_service  # Lazy load
+
+        # Set filter criteria from parameters or defaults
+        self.market_cap_min = market_cap_min if market_cap_min is not None else self.DEFAULT_MIN_MARKET_CAP
+        self.index_membership = index_membership
+
+    def _get_postgres_service(self):
+        """Get postgres service lazily"""
+        if self.postgres_service is None:
         self.postgres_service = get_postgres_service()
+        return self.postgres_service
+
+    def meets_market_cap_threshold(self, market_cap: float) -> bool:
+        """Check if market cap meets minimum threshold."""
+        return market_cap >= self.market_cap_min
+
+    def is_in_index(self, ticker: str, index: str) -> bool:
+        """Check if stock is in specified index."""
+        if self.index_membership == "SP1500":
+            # SP1500 includes SP500, SP400, SP600
+            return index in ["SP500", "SP400", "SP600", "SP1500"]
+        return index == self.index_membership
     
     async def filter_by_market_cap(
         self,
@@ -73,7 +93,7 @@ class StockFilter:
         Returns:
             List of transactions with quarter-over-quarter changes
         """
-        if not self.postgres_service.is_available():
+        if not self._get_postgres_service().is_available():
             return []
         
         lookback_start = as_of_date - timedelta(days=(lookback_quarters * 91))
@@ -93,10 +113,10 @@ class StockFilter:
                         PARTITION BY f.cik, f.period_end_date 
                         ORDER BY f.filing_date DESC
                     ) as filing_rank
-                FROM `{self.postgres_service._get_table_ref('sec_holdings_13f')}` h
-                JOIN `{self.postgres_service._get_table_ref('sec_filings_13f')}` f
+                FROM `{self._get_postgres_service()._get_table_ref('sec_holdings_13f')}` h
+                JOIN `{self._get_postgres_service()._get_table_ref('sec_filings_13f')}` f
                     ON h.filing_id = f.filing_id
-                JOIN `{self.postgres_service._get_table_ref('sec_institutions')}` i
+                JOIN `{self._get_postgres_service()._get_table_ref('sec_institutions')}` i
                     ON f.cik = i.cik
                 WHERE h.cusip = @cusip
                     AND f.filing_date <= @as_of_date
@@ -145,15 +165,15 @@ class StockFilter:
             ORDER BY filing_date DESC
         """
         
-        params = [
-            postgres.ScalarQueryParameter("cusip", "STRING", cusip),
-            postgres.ScalarQueryParameter("as_of_date", "DATE", as_of_date),
-            postgres.ScalarQueryParameter("lookback_start", "DATE", lookback_start),
-            postgres.ArrayQueryParameter("qualified_ciks", "STRING", qualified_investor_ciks)
-        ]
+        params = {
+            "cusip": cusip,
+            "as_of_date": as_of_date,
+            "lookback_start": lookback_start,
+            "qualified_ciks": qualified_investor_ciks
+        }
         
         try:
-            results = await self.postgres_service.execute_query(query, params)
+            results = await self._get_postgres_service().execute_query(query, params)
             return results
         except Exception as e:
             print(f"Error querying institutional transactions for {ticker}: {e}")

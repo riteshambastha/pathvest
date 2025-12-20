@@ -7,7 +7,8 @@ import json
 import subprocess
 import tempfile
 import os
-from datetime import datetime
+import shutil
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 import pandas as pd
@@ -18,60 +19,54 @@ from app.schemas.backtest_response import (
     BacktestSummary,
     EquityCurve,
     Trade,
-    PositionHistory
 )
 from app.services.alphavantage_service import AlphaVantageService
 from app.services.sec_edgar_service import SECEdgarService
+from app.services.lean_engine import LEANBacktestEngine
 from app.core.config import settings
+
+# Database access
+from app.services.strategy_db import SessionLocal
+from sqlalchemy import text
 
 
 class BacktestWorker:
     """
     Worker service for executing LEAN backtests
-    
-    Responsibilities:
-    1. Translate BacktestRequest → LEAN configuration
-    2. Execute LEAN backtest in subprocess/container
-    3. Parse LEAN results → BacktestResponse
-    4. Handle errors and logging
-    5. Track API calls and SEC data usage
     """
     
     def __init__(
         self,
         lean_cli_path: str = "lean",
-        lean_project_dir: str = "/Users/riteshambastha/projects/pathvest/backend/lean_engine"
+        lean_project_dir: str = None # defaults to backend/lean
     ):
         """
         Initialize backtest worker
-        
-        Args:
-            lean_cli_path: Path to LEAN CLI executable
-            lean_project_dir: Path to LEAN project directory
         """
         self.lean_cli_path = lean_cli_path
-        self.lean_project_dir = Path(lean_project_dir)
-        self.strategies_dir = self.lean_project_dir / "strategies"
+        
+        # Determine LEAN project root (backend/lean)
+        if lean_project_dir:
+            self.lean_project_dir = Path(lean_project_dir)
+        else:
+            # Assume we are in backend/lean_engine/worker/backtest_worker.py
+            # Go up 3 levels to backend, then to lean
+            self.lean_project_dir = Path(__file__).parent.parent.parent / "lean"
+
         self.data_dir = self.lean_project_dir / "data"
         self.results_dir = self.lean_project_dir / "results"
         
-        # Initialize API services
-        self.alpha_vantage = AlphaVantageService()
-        self.sec_edgar = SECEdgarService()
-        
-        # Track API usage
-        self.api_calls_made = 0
-        self.sec_filings_fetched = 0
-        self.stocks_analyzed_list = []
+        # Custom data directories
+        self.sec_13f_dir = self.data_dir / "sec_13f"
+        self.sec_form4_dir = self.data_dir / "sec_form4"
         
         # Ensure directories exist
-        self.strategies_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.sec_13f_dir.mkdir(parents=True, exist_ok=True)
+        self.sec_form4_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
-        print(f"✅ BacktestWorker initialized")
-        print(f"   AlphaVantage API: {'Configured' if settings.ALPHAVANTAGE_API_KEY else '⚠️ Missing (will use fallback)'}")
-        print(f"   SEC EDGAR: Configured (free access)")
+        print(f"✅ BacktestWorker initialized (Root: {self.lean_project_dir})")
+        print(f"   Data Dir: {self.data_dir}")
     
     def execute_backtest(
         self,
@@ -80,482 +75,261 @@ class BacktestWorker:
         progress_callback: Optional[callable] = None
     ) -> BacktestResponse:
         """
-        Execute a complete backtest
-        
-        Args:
-            backtest_id: Unique backtest identifier
-            request: Backtest configuration
-            progress_callback: Optional callback(progress_pct, message)
-        
-        Returns:
-            BacktestResponse with results
+        Execute a complete backtest using LEAN
         """
         start_time = datetime.utcnow()
         
-        # Reset counters for this backtest
-        self.api_calls_made = 0
-        self.sec_filings_fetched = 0
-        self.stocks_analyzed_list = []
-        
         try:
-            # Step 1: Generate LEAN configuration
+            # Step 1: Initialize Engine
             if progress_callback:
-                progress_callback(10, "Generating LEAN configuration...")
-            
-            lean_config = self._translate_to_lean_config(request)
-            
-            # Step 2: Write configuration files
-            if progress_callback:
-                progress_callback(20, "Writing configuration files...")
-            
-            config_file = self._write_lean_config(backtest_id, lean_config)
-            
-            # Step 3: Fetch required data (SEC filings, market data)
-            if progress_callback:
-                progress_callback(25, "Fetching SEC filings and market data...")
-            
-            self._fetch_required_data(request, progress_callback)
-            
-            # Step 4: Execute LEAN
-            if progress_callback:
-                progress_callback(40, "Executing LEAN backtest...")
-            
-            lean_output = self._run_lean_backtest(config_file, progress_callback)
-            
-            # Step 5: Parse results
-            if progress_callback:
-                progress_callback(80, "Parsing results...")
-            
-            result = self._parse_lean_results(
-                backtest_id=backtest_id,
-                lean_output=lean_output,
-                request=request
+                progress_callback(5, "Initializing LEAN engine...")
+                
+            engine = LEANBacktestEngine(
+                start_date=request.strategy_config.backtest_period.start_date,
+                end_date=request.strategy_config.backtest_period.end_date,
+                initial_cash=request.strategy_config.initial_capital,
+                lean_cli_path=self.lean_cli_path
             )
             
-            # Calculate execution time
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
-            result.execution_time_seconds = execution_time
+            # Step 2: Prepare Data (Fetch from DB -> Write to JSONL)
+            if progress_callback:
+                progress_callback(15, "Preparing institutional data for LEAN...")
+            
+            stats = self._prepare_data_for_lean(request)
+            
+            if progress_callback:
+                progress_callback(30, f"Data ready: {stats['filings']} filings, {stats['stocks']} stocks")
+
+            # Step 2.5: Inject discovered stocks into config
+            # This ensures the generated algorithm subscribes to data for these stocks
+            config_dict = request.strategy_config.dict()
+            if 'universe' not in config_dict:
+                config_dict['universe'] = {}
+            
+            existing_tickers = config_dict['universe'].get('tickers', []) or []
+            # Merge and deduplicate
+            all_tickers = list(set(existing_tickers + stats['stocks_list']))
+            config_dict['universe']['tickers'] = all_tickers
+            
+            print(f"✅ Auto-populated universe with {len(all_tickers)} stocks from institutional holdings")
+
+            # Step 3: Run Backtest
+            if progress_callback:
+                progress_callback(40, "Running LEAN backtest (this may take a few minutes)...")
+                
+            # This generates algorithm, config, runs CLI, parses results
+            result_dict = engine.run_backtest(config_dict)
+            
+            if result_dict.get('status') == 'error':
+                 raise Exception(result_dict.get('error_message', 'Unknown LEAN error'))
+
+            # Step 4: Finalize
+            if progress_callback:
+                progress_callback(90, "Finalizing results...")
+            
+            # Convert dict result to Pydantic Response
+            response = self._convert_to_response(backtest_id, request, result_dict)
+            
+            response.execution_time_seconds = (datetime.utcnow() - start_time).total_seconds()
+            
+            # Add data stats
+            response.api_calls_made = stats.get('api_calls', 0)
+            response.sec_filings_fetched = stats.get('filings', 0)
+            response.stocks_analyzed = stats.get('stocks_list', [])
             
             if progress_callback:
                 progress_callback(100, "Backtest completed successfully")
-            
-            return result
+                
+            return response
         
         except Exception as e:
-            raise Exception(f"Backtest execution failed: {str(e)}")
-    
-    def _translate_to_lean_config(self, request: BacktestRequest) -> Dict[str, Any]:
+            print(f"❌ LEAN Execution Failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise e
+
+    def _prepare_data_for_lean(self, request: BacktestRequest) -> Dict[str, Any]:
         """
-        Translate BacktestRequest to LEAN configuration format
-        
-        Args:
-            request: BacktestRequest
-        
-        Returns:
-            Dict with LEAN configuration
+        Fetch data from Postgres and write to JSONL files for LEAN
         """
         config = request.strategy_config
         
-        lean_config = {
-            "algorithm-type-name": "InstitutionalFollowingStrategy",
-            "algorithm-language": "Python",
-            "algorithm-location": "strategies/institutional_strategy.py",
+        # Get selected institutions
+        ciks = []
+        if hasattr(config, 'selected_institutions'):
+             ciks = config.selected_institutions
+        # Fallback to dictionary lookups if needed (handled in backtest endpoint usually)
+        if not ciks and config.stock_selection:
+             ciks = config.stock_selection.get('selected_institutions', [])
+        
+        if not ciks:
+            print("⚠️ No institutions selected for LEAN data prep")
+            return {'filings': 0, 'stocks': 0, 'stocks_list': []}
             
-            "parameters": {
-                "initial-cash": config.initial_capital,
-                "start-date": config.backtest_period.start_date.isoformat(),
-                "end-date": config.backtest_period.end_date.isoformat(),
-                "enable-fractional-shares": True,
-                
-                # Universe filters
-                "universe_market_cap_min": config.universe_filters.market_cap_min,
-                "universe_index": config.universe_filters.index_membership,
-                "universe_lookback_quarters": config.universe_filters.lookback_quarters,
-                
-                # Investor filters
-                "investor_aum_min": config.sub_universe_filters.investor.aum_min,
-                "investor_track_record_quarters": config.sub_universe_filters.investor.track_record_quarters,
-                "investor_concentration_max": config.sub_universe_filters.investor.concentration_max,
-                "investor_turnover_max": config.sub_universe_filters.investor.turnover_max,
-                
-                # Transaction filters
-                "transaction_min_buy_value": config.sub_universe_filters.transaction.min_buy_value,
-                "transaction_share_increase_min": config.sub_universe_filters.transaction.share_increase_min,
-                
-                # Entry signals
-                "enable_doubling_down": config.entry_signals.enable_doubling_down,
-                "enable_insider_buying": config.entry_signals.enable_insider_buying,
-                "enable_herding": config.entry_signals.enable_herding,
-                
-                # Technical confirmation
-                "price_breakout_days": config.entry_signals.technical_confirmation.price_breakout_days,
-                "sma_period": config.entry_signals.technical_confirmation.sma_period,
-                "rsi_period": config.entry_signals.technical_confirmation.rsi_period,
-                "rsi_threshold": config.entry_signals.technical_confirmation.rsi_threshold,
-                
-                # Position sizing
-                "position_size_pct": config.position_sizing.percent_per_position,
-                "min_positions": config.position_sizing.min_positions,
-                "max_positions": config.position_sizing.max_positions,
-                "rank_buffer": config.position_sizing.rank_buffer,
-                
-                # Conviction weights
-                "conviction_weight_herding": config.conviction_weights.herding,
-                "conviction_weight_insider": config.conviction_weights.insider,
-                
-                # Exit rules
-                "enable_thesis_drift": config.exit_rules.enable_thesis_drift,
-                "enable_insider_reversal": config.exit_rules.enable_insider_reversal,
-                "enable_trailing_stop": config.exit_rules.enable_trailing_stop,
-                "trailing_stop_percent": config.exit_rules.trailing_stop_percent,
-                "enable_dead_money": config.exit_rules.enable_dead_money,
-                "dead_money_quarters": config.exit_rules.dead_money_quarters,
-                
-                # Transaction costs
-                "commission_per_share": config.transaction_costs.commission_per_share,
-                "slippage_bps": config.transaction_costs.slippage_bps,
-                
-                # Rebalancing
-                "rebalance_frequency": config.heartbeat.rebalance_frequency
-            },
-            
-            "data-folder": str(self.data_dir),
-            "results": str(self.results_dir)
-        }
+        print(f"📊 Fetching data for {len(ciks)} institutions...")
         
-        return lean_config
-    
-    def _write_lean_config(self, backtest_id: str, config: Dict[str, Any]) -> Path:
-        """
-        Write LEAN configuration to file
-        
-        Args:
-            backtest_id: Backtest identifier
-            config: LEAN configuration dict
-        
-        Returns:
-            Path to configuration file
-        """
-        config_file = self.results_dir / f"{backtest_id}_config.json"
-        
-        with open(config_file, 'w') as f:
-            json.dump(config, f, indent=2)
-        
-        return config_file
-    
-    def _fetch_required_data(
-        self,
-        request: BacktestRequest,
-        progress_callback: Optional[callable] = None
-    ):
-        """
-        Fetch required SEC filings and market data from DATABASE
-        NO HARDCODED VALUES - Uses real institutional holdings data
-        
-        Args:
-            request: BacktestRequest
-            progress_callback: Optional callback for progress
-        """
-        config = request.strategy_config
-        
-        # Extract institution CIKs from config dict
-        institution_ciks = []
-        config_dict = config.dict()
-        
-        # Handle different ways selected_institutions might be stored:
-        # 1. In stock_selection
-        if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
-            institution_ciks = config_dict['stock_selection'].get('selected_institutions', [])
-        # 2. In sub_universe_filters (frontend stores here!)
-        elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
-            institution_ciks = config_dict['sub_universe_filters'].get('selected_institutions', [])
-        # 3. Directly in config
-        elif 'selected_institutions' in config_dict:
-            institution_ciks = config_dict['selected_institutions']
-        
-        # Store for later use in _parse_lean_results
-        self._last_institution_count = len(institution_ciks)
-        
-        print(f"📊 Fetching REAL data for {len(institution_ciks)} institutions from database...")
-        
-        if not institution_ciks:
-            print("⚠️ No institutions selected, cannot fetch holdings")
-            self.stocks_analyzed_list = []
-            self.api_calls_made = 0
-            self.sec_filings_fetched = 0
-            return
-        
-        # Fetch REAL institutional holdings from database
+        # Query DB
+        db = SessionLocal()
         try:
-            from app.services.strategy_db import SessionLocal
-            from sqlalchemy import text
-            
-            db = SessionLocal()
-            
-            # Query for REAL holdings within backtest period
+            # 1. Fetch Holdings
             start_date = config.backtest_period.start_date
+            # Lookback extra 1 year for trends/doubling down calculation
+            query_start = start_date - timedelta(days=365)
             end_date = config.backtest_period.end_date
-            quarters = config.universe_filters.lookback_quarters
             
-            # Calculate lookback date based on quarters
-            from datetime import timedelta
-            lookback_date = start_date - timedelta(days=quarters * 91)  # ~91 days per quarter
-            
-            # Query REAL SEC holdings from database
             query = text("""
-                SELECT DISTINCT
-                    h.cusip,
-                    h.ticker,
-                    COUNT(DISTINCT f.filing_id) as filing_count
-                FROM sec_holdings_13f h
-                JOIN sec_filings_13f f ON h.filing_id = f.filing_id
+                SELECT 
+                    f.cik, i.name as institution_name, 
+                    f.filing_date, f.period_of_report,
+                    h.ticker, h.value as market_value, h.shares_or_prn_amt as shares
+                FROM holdings h
+                JOIN filings f ON h.filing_id = f.id
+                JOIN institutions i ON f.institution_id = i.id
                 WHERE f.cik = ANY(:ciks)
-                    AND f.filing_date BETWEEN :lookback_date AND :end_date
-                    AND h.ticker IS NOT NULL
-                    AND h.ticker != ''
-                GROUP BY h.cusip, h.ticker
-                ORDER BY filing_count DESC
-                LIMIT 100
+                AND f.filing_date >= :query_start
+                AND f.filing_date <= :end_date
+                AND h.ticker IS NOT NULL
+                ORDER BY h.ticker, f.filing_date
             """)
             
-            result = db.execute(query, {
-                "ciks": institution_ciks,
-                "lookback_date": lookback_date,
+            results = db.execute(query, {
+                "ciks": ciks, 
+                "query_start": query_start,
                 "end_date": end_date
-            })
+            }).fetchall()
             
-            holdings = result.fetchall()
-            db.close()
+            # Process results into Ticker -> [Events]
+            ticker_events = {}
+            stocks_set = set()
             
-            # Extract REAL stock tickers from database
-            self.stocks_analyzed_list = [row.ticker for row in holdings if row.ticker]
+            # Simple tracking for calculating changes
+            # (ticker, cik) -> last_shares
+            history = {} 
             
-            # Count REAL filings from database
-            filing_query = text("""
-                SELECT COUNT(DISTINCT filing_id) as filing_count
-                FROM sec_filings_13f
-                WHERE cik = ANY(:ciks)
-                    AND filing_date BETWEEN :lookback_date AND :end_date
-            """)
-            
-            db = SessionLocal()
-            filing_result = db.execute(filing_query, {
-                "ciks": institution_ciks,
-                "lookback_date": lookback_date,
-                "end_date": end_date
-            })
-            self.sec_filings_fetched = filing_result.scalar() or 0
-            db.close()
-            
-            # Calculate API calls based on ACTUAL stocks found
-            days = (end_date - start_date).days
-            trading_days = int(days * (252/365))  # Approximate trading days
-            # Batch API calls: 1 call per stock per 100 days (with batching)
-            self.api_calls_made = len(self.stocks_analyzed_list) * max(1, trading_days // 100)
-            
-            print(f"✅ Found {self.sec_filings_fetched} REAL SEC filings in database")
-            print(f"✅ Extracted {len(self.stocks_analyzed_list)} REAL stocks from institutional holdings")
-            print(f"✅ Would make ~{self.api_calls_made} API calls for price data ({len(self.stocks_analyzed_list)} stocks × {trading_days} trading days ÷ 100 batch)")
-            
-        except Exception as e:
-            print(f"⚠️ Could not fetch real holdings from database: {e}")
-            print(f"⚠️ Database may be empty. Please seed SEC data first.")
-            # Fallback: empty lists instead of hardcoded values
-            self.stocks_analyzed_list = []
-            self.api_calls_made = 0
-            self.sec_filings_fetched = 0
-    
-    def _run_lean_backtest(
-        self,
-        config_file: Path,
-        progress_callback: Optional[callable] = None
-    ) -> Dict[str, Any]:
-        """
-        Execute LEAN backtest (simulated mode for MVP)
-        
-        NOTE: Real LEAN CLI execution requires QuantConnect Cloud or local Docker setup.
-        For Render deployment, we use our custom Python-based backtest simulation.
-        
-        Args:
-            config_file: Path to LEAN configuration
-            progress_callback: Optional callback for progress
-        
-        Returns:
-            Dict with LEAN-format output
-        """
-        print("🚀 Running PathVest custom backtest engine (LEAN-compatible)")
-        
-        # Simulate LEAN execution with progress updates
-        if progress_callback:
-            progress_callback(40, "Loading market data...")
-            progress_callback(50, "Processing institutional signals...")
-            progress_callback(60, "Executing trades...")
-            progress_callback(70, "Calculating performance metrics...")
-        
-        # Return LEAN-compatible output format
-        # This simulates what real LEAN would return
-        return self._generate_mock_lean_output()
-    
-    def _generate_mock_lean_output(self) -> Dict[str, Any]:
-        """Generate mock LEAN output for testing/simulation"""
-        return {
-            'Statistics': {
-                'Total Trades': 47,
-                'Average Win': 0.082,
-                'Average Loss': -0.043,
-                'Compounding Annual Return': 0.0623,
-                'Drawdown': -0.234,
-                'Sharpe Ratio': 1.23,
-                'Alpha': 0.032,
-                'Beta': 0.87
-            },
-            'Charts': {
-                'Strategy Equity': {
-                    'Series': {
-                        'Equity': {
-                            'Values': []  # Would contain equity curve data
-                        }
-                    }
+            for row in results:
+                ticker = row.ticker.upper()
+                if not ticker: continue
+                
+                stocks_set.add(ticker)
+                
+                # Calculate change
+                key = (ticker, row.cik)
+                last_shares = history.get(key, 0)
+                current_shares = float(row.shares or 0)
+                
+                shares_change_pct = 0.0
+                if last_shares > 0:
+                    shares_change_pct = ((current_shares - last_shares) / last_shares) * 100
+                
+                is_new = (last_shares == 0 and current_shares > 0)
+                is_doubling_down = (shares_change_pct >= 100) # Simple rule
+                
+                # Update history
+                history[key] = current_shares
+                
+                # Skip if outside actual backtest period (we fetched extra for history)
+                if row.filing_date < start_date:
+                    continue
+                
+                event = {
+                    "cik": row.cik,
+                    "institution_name": row.institution_name,
+                    "filing_date": row.filing_date.strftime("%Y-%m-%d"),
+                    "period_of_report": row.period_of_report,
+                    "shares": current_shares,
+                    "market_value": float(row.market_value or 0),
+                    "shares_change_pct": shares_change_pct,
+                    "is_new_position": is_new,
+                    "is_doubling_down": is_doubling_down,
+                    "conviction_score": 50.0 + (shares_change_pct if shares_change_pct > 0 else 0) # Simple proxy
                 }
-            },
-            'Orders': []  # Would contain order history
-        }
-    
-    def _parse_lean_results(
-        self,
-        backtest_id: str,
-        lean_output: Dict[str, Any],
-        request: BacktestRequest
-    ) -> BacktestResponse:
-        """
-        Parse LEAN output into BacktestResponse
+                
+                if ticker not in ticker_events:
+                    ticker_events[ticker] = []
+                ticker_events[ticker].append(event)
+            
+            # Write JSONL files
+            count = 0
+            for ticker, events in ticker_events.items():
+                file_path = self.sec_13f_dir / f"{ticker.lower()}.jsonl"
+                with open(file_path, 'w') as f:
+                    for event in events:
+                        f.write(json.dumps(event) + "\n")
+                count += 1
+                
+            print(f"✅ Wrote {count} data files for LEAN")
+            
+            return {
+                'filings': len(results), # Approximate
+                'stocks': count,
+                'stocks_list': list(stocks_set),
+                'api_calls': count * 2 # Proxy estimate
+            }
+            
+        finally:
+            db.close()
+
+    def _convert_to_response(self, backtest_id: str, request: BacktestRequest, result: Dict) -> BacktestResponse:
+        """Convert engine dict result to Pydantic response"""
         
-        Args:
-            backtest_id: Backtest identifier
-            lean_output: Raw LEAN output
-            request: Original request
+        # Helper to safely get nested values
+        summary = result.get('summary', {})
+        equity = result.get('equity_curve', {})
+        trades_list = result.get('trades', [])
         
-        Returns:
-            BacktestResponse
-        """
-        # Extract statistics
-        stats = lean_output.get('Statistics', {})
-        
-        # Build summary
-        summary = BacktestSummary(
-            total_return=float(stats.get('Total Return', 0.847)),
-            cagr=float(stats.get('Compounding Annual Return', 0.0623)),
-            volatility=float(stats.get('Annual Std Dev', 0.182)),
-            sharpe_ratio=float(stats.get('Sharpe Ratio', 1.23)),
-            sortino_ratio=float(stats.get('Sortino Ratio', 1.67)),
-            max_drawdown=float(stats.get('Drawdown', -0.234)),
-            romad=float(stats.get('RoMaD', 0.266)),
-            alpha=float(stats.get('Alpha', 0.032)),
-            beta=float(stats.get('Beta', 0.87)),
-            information_ratio=float(stats.get('Information Ratio', 0.45)),
-            var_95=float(stats.get('VaR 95%', -0.023)),
-            cvar_95=float(stats.get('cVaR 95%', -0.031)),
-            win_rate_daily=float(stats.get('Win Rate Daily', 0.54)),
-            win_rate_monthly=float(stats.get('Win Rate Monthly', 0.61)),
-            win_rate_yearly=float(stats.get('Win Rate Yearly', 0.70)),
-            best_day=float(stats.get('Best Day', 0.068)),
-            worst_day=float(stats.get('Worst Day', -0.052)),
-            benchmark_total_return=float(stats.get('Benchmark Return', 0.612)),
-            benchmark_cagr=float(stats.get('Benchmark CAGR', 0.048))
+        # Build Summary
+        backtest_summary = BacktestSummary(
+            total_return=summary.get('total_return', 0),
+            cagr=summary.get('cagr', 0),
+            sharpe_ratio=summary.get('sharpe_ratio', 0),
+            max_drawdown=summary.get('max_drawdown', 0),
+            win_rate_daily=summary.get('win_rate', 0),
+            alpha=summary.get('alpha', 0),
+            beta=summary.get('beta', 0),
+            volatility=summary.get('volatility', 0),
+            sortino_ratio=summary.get('sortino_ratio', 0),
+            information_ratio=summary.get('information_ratio', 0)
         )
         
-        # Build equity curve
-        equity_curve = self._build_equity_curve(lean_output)
+        # Build Equity Curve
+        equity_curve = EquityCurve(
+            dates=equity.get('dates', []),
+            portfolio_values=equity.get('portfolio_values', []),
+            benchmark_values=[] # Optional
+        )
         
-        # Build trades list
-        trades = self._build_trades_list(lean_output)
-        
+        # Build Trades
+        trades = []
+        for t in trades_list:
+            trades.append(Trade(
+                ticker=t.get('ticker'),
+                entry_date=str(t.get('entry_date')),
+                entry_price=t.get('entry_price'),
+                shares=t.get('quantity'),
+                signal_type=t.get('direction', 'BUY'), # Map direction to signal type loosely
+                return_pct=0, # Calculated fields might be missing in raw trade list
+                pnl=t.get('value', 0)
+            ))
+
         return BacktestResponse(
             backtest_id=backtest_id,
-            status='completed',
-            execution_time_seconds=0,  # Will be set by caller
-            summary=summary,
+            strategy_name=request.strategy_config.name,
+            status="completed",
+            start_date=result.get('start_date', str(request.strategy_config.backtest_period.start_date)),
+            end_date=result.get('end_date', str(request.strategy_config.backtest_period.end_date)),
+            initial_capital=result.get('initial_capital', request.strategy_config.initial_capital),
+            final_value=result.get('final_value', 0),
+            summary=backtest_summary,
             equity_curve=equity_curve,
             trades=trades,
-            strategy_name=request.strategy_config.name,
-            start_date=str(request.strategy_config.backtest_period.start_date),
-            end_date=str(request.strategy_config.backtest_period.end_date),
-            initial_capital=request.strategy_config.initial_capital,
-            # Add top-level fields for frontend
-            api_calls_made=self.api_calls_made,
-            sec_filings_fetched=self.sec_filings_fetched,
-            stocks_analyzed=self.stocks_analyzed_list,
-            # Keep nested metadata for detailed tracking
-            real_market_data={
-                "data_source": "AlphaVantage",
-                "api_calls": self.api_calls_made,
-                "stocks_count": len(self.stocks_analyzed_list)
-            },
-            institutional_signals={
-                "sec_filings_fetched": self.sec_filings_fetched,
-                "total_signals": len(trades) * 2,  # Approximate
-                "institutions_tracked": getattr(self, '_last_institution_count', 0)
-            }
+            real_market_data={"source": "LEAN / AlphaVantage"},
+            institutional_signals={"source": "PathVest DB"}
         )
-    
-    def _build_equity_curve(self, lean_output: Dict[str, Any]) -> EquityCurve:
-        """Build equity curve from LEAN output"""
-        # In production, parse from LEAN Charts
-        # For now, return mock data
-        return EquityCurve(
-            dates=["2013-01-01", "2013-06-30", "2013-12-31", "2023-12-31"],
-            portfolio_values=[1000000, 1120000, 1247000, 1847000],
-            benchmark_values=[1000000, 1085000, 1152000, 1612000]
-        )
-    
-    def _build_trades_list(self, lean_output: Dict[str, Any]) -> List[Trade]:
-        """Build trades list from LEAN output"""
-        # In production, parse from LEAN Orders/Trades
-        # For now, return mock trades
-        return [
-            Trade(
-                entry_date="2013-03-15",
-                exit_date="2013-09-22",
-                ticker="AAPL",
-                entry_price=62.35,
-                exit_price=71.20,
-                shares=801.6,
-                pnl=7091.16,
-                return_pct=0.142,
-                holding_period_days=191,
-                exit_reason="trailing_stop",
-                signal_type="doubling_down",
-                conviction_score=72.5,
-                rank=3
-            ),
-            Trade(
-                entry_date="2013-04-10",
-                exit_date="2014-01-15",
-                ticker="MSFT",
-                entry_price=28.50,
-                exit_price=37.20,
-                shares=1754.4,
-                pnl=15263.28,
-                return_pct=0.305,
-                holding_period_days=280,
-                exit_reason="thesis_drift",
-                signal_type="herding",
-                conviction_score=68.2,
-                rank=7
-            )
-        ]
 
-
-# Singleton instance
+# Singleton getter
 _worker_instance = None
-
-
 def get_backtest_worker() -> BacktestWorker:
-    """Get singleton BacktestWorker instance"""
     global _worker_instance
-    
     if _worker_instance is None:
         _worker_instance = BacktestWorker()
-    
     return _worker_instance
-

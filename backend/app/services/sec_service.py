@@ -244,6 +244,7 @@ class SECService:
                     accession_no=filing_data.get("accessionNo"),
                     form_type=filing_data.get("formType"),
                     filed_at=filed_at_naive,
+                    filing_date=filed_at_naive.date(),
                     period_of_report=filing_data.get("periodOfReport"),
                     link_to_txt=filing_data.get("linkToTxt"),
                     link_to_html=filing_data.get("linkToHtml"),
@@ -560,10 +561,17 @@ class SECService:
         Full implementation with XML parsing
         """
         
-        # Check if holdings already cached
-        if filing.holdings:
-            print(f"✅ Serving {len(filing.holdings)} holdings from database cache")
-            return filing.holdings
+        # Check if holdings already cached (safely for async)
+        # Instead of accessing filing.holdings directly which triggers lazy load
+        stmt = select(Holding).where(Holding.filing_id == filing.id).limit(1)
+        result = await db.execute(stmt)
+        if result.scalar_one_or_none():
+            # Holdings exist, load them all
+            stmt = select(Holding).where(Holding.filing_id == filing.id)
+            result = await db.execute(stmt)
+            holdings = result.scalars().all()
+            print(f"✅ Serving {len(holdings)} holdings from database cache")
+            return list(holdings)
         
         print(f"🔄 Fetching holdings from SEC.gov for filing {filing.accession_no}...")
         

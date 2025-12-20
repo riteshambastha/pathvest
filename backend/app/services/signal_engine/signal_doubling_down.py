@@ -7,7 +7,6 @@ from typing import List, Dict, Any, Optional
 from datetime import date, timedelta
 from app.services.postgres_service import get_postgres_service
 from app.services.alphavantage_service import get_alphavantage_service
-from google.cloud import postgres
 
 
 class DoublingDownSignal:
@@ -74,12 +73,12 @@ class DoublingDownSignal:
             FROM quarterly_positions
         """
         
-        params = [
-            postgres.ScalarQueryParameter("cik", "STRING", cik),
-            postgres.ScalarQueryParameter("cusip", "STRING", cusip),
-            postgres.ScalarQueryParameter("current_quarter_end", "DATE", current_quarter_end),
-            postgres.ScalarQueryParameter("lookback_start", "DATE", lookback_start)
-        ]
+        params = {
+            "cik": cik,
+            "cusip": cusip,
+            "current_quarter_end": current_quarter_end,
+            "lookback_start": lookback_start
+        }
         
         try:
             results = await self.postgres_service.execute_query(query, params)
@@ -130,12 +129,12 @@ class DoublingDownSignal:
             ORDER BY f.period_end_date DESC
         """
         
-        params = [
-            postgres.ScalarQueryParameter("cik", "STRING", cik),
-            postgres.ScalarQueryParameter("cusip", "STRING", cusip),
-            postgres.ScalarQueryParameter("current_quarter_end", "DATE", current_quarter_end),
-            postgres.ScalarQueryParameter("prev_quarter_end", "DATE", prev_quarter_end)
-        ]
+        params = {
+            "cik": cik,
+            "cusip": cusip,
+            "current_quarter_end": current_quarter_end,
+            "prev_quarter_end": prev_quarter_end
+        }
         
         try:
             results = await self.postgres_service.execute_query(query, params)

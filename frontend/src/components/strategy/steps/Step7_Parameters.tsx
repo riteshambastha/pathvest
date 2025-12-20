@@ -12,6 +12,7 @@ interface StepProps {
 
 const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  
   const transactionCosts = config.transaction_costs || {
     commission_per_trade: 0.0,
     commission_pct: 0.001,
@@ -19,10 +20,60 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
     min_commission: 1.0,
   };
 
+  // Conviction weights with defaults
+  const convictionWeights = config.conviction_weights || {
+    doubling_down: 40,
+    insider_buying: 30,
+    institutional_herding: 20,
+    technical_confirmation: 10,
+  };
+
+  // Technical parameters with defaults
+  const technicalParams = config.technical_params || {
+    sma_short: 50,
+    sma_long: 200,
+    rsi_period: 14,
+    breakout_days: 20,
+  };
+
+  // Universe filtration with defaults
+  const universeFiltration = config.universe_filtration || {
+    min_market_cap_b: 3,
+    index_filter: 'sp1500',
+    min_daily_volume: 1000000,
+  };
+
   const updateTransactionCosts = (updates: any) => {
     updateConfig({
       transaction_costs: {
         ...transactionCosts,
+        ...updates,
+      },
+    });
+  };
+
+  const updateConvictionWeights = (updates: Partial<typeof convictionWeights>) => {
+    updateConfig({
+      conviction_weights: {
+        ...convictionWeights,
+        ...updates,
+      },
+    });
+  };
+
+  const updateTechnicalParams = (updates: Partial<typeof technicalParams>) => {
+    updateConfig({
+      technical_params: {
+        ...technicalParams,
+        ...updates,
+      },
+    });
+  };
+
+  const updateUniverseFiltration = (updates: Partial<typeof universeFiltration>) => {
+    updateConfig({
+      universe_filtration: {
+        ...universeFiltration,
         ...updates,
       },
     });
@@ -156,7 +207,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
                   type="number"
                   min="10"
                   max="100"
-                  defaultValue={50}
+                  value={technicalParams.sma_short}
+                  onChange={(e) => updateTechnicalParams({ sma_short: parseInt(e.target.value) || 50 })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Short SMA (50)"
                 />
@@ -167,7 +219,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
                   type="number"
                   min="100"
                   max="300"
-                  defaultValue={200}
+                  value={technicalParams.sma_long}
+                  onChange={(e) => updateTechnicalParams({ sma_long: parseInt(e.target.value) || 200 })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Long SMA (200)"
                 />
@@ -184,7 +237,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
               type="number"
               min="7"
               max="30"
-              defaultValue={14}
+              value={technicalParams.rsi_period}
+              onChange={(e) => updateTechnicalParams({ rsi_period: parseInt(e.target.value) || 14 })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               placeholder="RSI Period (14)"
             />
@@ -201,7 +255,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
               type="number"
               min="10"
               max="60"
-              defaultValue={20}
+              value={technicalParams.breakout_days}
+              onChange={(e) => updateTechnicalParams({ breakout_days: parseInt(e.target.value) || 20 })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               placeholder="Breakout Period (20)"
             />
@@ -221,60 +276,86 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
           Adjust the importance of each signal type in the conviction ranking algorithm
         </p>
         
-        <div className="space-y-3">
+        {/* Total weight indicator */}
+        <div className="mb-4 p-2 rounded-lg bg-gray-50">
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-600">Total Weight:</span>
+            <span className={`font-bold ${
+              convictionWeights.doubling_down + convictionWeights.insider_buying + 
+              convictionWeights.institutional_herding + convictionWeights.technical_confirmation === 100
+                ? 'text-green-600' : 'text-orange-600'
+            }`}>
+              {convictionWeights.doubling_down + convictionWeights.insider_buying + 
+               convictionWeights.institutional_herding + convictionWeights.technical_confirmation}%
+              {(convictionWeights.doubling_down + convictionWeights.insider_buying + 
+                convictionWeights.institutional_herding + convictionWeights.technical_confirmation !== 100) && 
+                ' (should equal 100%)'}
+            </span>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-gray-700">Doubling Down Signal</span>
-              <span className="text-gray-900 font-medium">40%</span>
+              <span className="text-gray-900 font-bold">{convictionWeights.doubling_down}%</span>
             </div>
             <input
               type="range"
               min="0"
               max="100"
-              defaultValue={40}
-              className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+              step="5"
+              value={convictionWeights.doubling_down}
+              onChange={(e) => updateConvictionWeights({ doubling_down: parseInt(e.target.value) })}
+              className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
           </div>
 
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-gray-700">Insider Buying Signal</span>
-              <span className="text-gray-900 font-medium">30%</span>
+              <span className="text-gray-900 font-bold">{convictionWeights.insider_buying}%</span>
             </div>
             <input
               type="range"
               min="0"
               max="100"
-              defaultValue={30}
-              className="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer"
+              step="5"
+              value={convictionWeights.insider_buying}
+              onChange={(e) => updateConvictionWeights({ insider_buying: parseInt(e.target.value) })}
+              className="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer accent-green-600"
             />
           </div>
 
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-gray-700">Institutional Herding Signal</span>
-              <span className="text-gray-900 font-medium">20%</span>
+              <span className="text-gray-900 font-bold">{convictionWeights.institutional_herding}%</span>
             </div>
             <input
               type="range"
               min="0"
               max="100"
-              defaultValue={20}
-              className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer"
+              step="5"
+              value={convictionWeights.institutional_herding}
+              onChange={(e) => updateConvictionWeights({ institutional_herding: parseInt(e.target.value) })}
+              className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
             />
           </div>
 
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-gray-700">Technical Confirmation</span>
-              <span className="text-gray-900 font-medium">10%</span>
+              <span className="text-gray-900 font-bold">{convictionWeights.technical_confirmation}%</span>
             </div>
             <input
               type="range"
               min="0"
               max="100"
-              defaultValue={10}
-              className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer"
+              step="5"
+              value={convictionWeights.technical_confirmation}
+              onChange={(e) => updateConvictionWeights({ technical_confirmation: parseInt(e.target.value) })}
+              className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
             />
           </div>
         </div>
@@ -294,7 +375,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
               min="0.1"
               max="50"
               step="0.5"
-              defaultValue={3}
+              value={universeFiltration.min_market_cap_b}
+              onChange={(e) => updateUniverseFiltration({ min_market_cap_b: parseFloat(e.target.value) || 3 })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -307,7 +389,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
               Index Filter
             </label>
             <select
-              defaultValue="sp1500"
+              value={universeFiltration.index_filter}
+              onChange={(e) => updateUniverseFiltration({ index_filter: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="none">No Filter (All Stocks)</option>
@@ -327,7 +410,8 @@ const Step7_Parameters: React.FC<StepProps> = ({ config, updateConfig, nextStep,
               min="100000"
               max="10000000"
               step="100000"
-              defaultValue={1000000}
+              value={universeFiltration.min_daily_volume}
+              onChange={(e) => updateUniverseFiltration({ min_daily_volume: parseInt(e.target.value) || 1000000 })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="mt-1 text-xs text-gray-500">

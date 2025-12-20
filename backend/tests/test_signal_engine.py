@@ -61,7 +61,8 @@ class TestInvestorFilter:
         balanced = [
             {"value": 25e6},  # 25%
             {"value": 25e6},  # 25%
-            {"value": 50e6},  # 50% split across others
+            {"value": 30e6},  # 30%
+            {"value": 20e6},  # 20%
         ]
         
         assert filter_obj.meets_concentration_limit(balanced, total_aum) == True

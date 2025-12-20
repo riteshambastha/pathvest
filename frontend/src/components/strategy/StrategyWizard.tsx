@@ -133,6 +133,29 @@ export interface StrategyConfig {
     parameter_sensitivity?: boolean;
     stress_test?: boolean;
   };
+
+  // Conviction Scoring Weights (Step 7)
+  conviction_weights?: {
+    doubling_down: number;
+    insider_buying: number;
+    institutional_herding: number;
+    technical_confirmation: number;
+  };
+
+  // Technical Parameters (Step 7)
+  technical_params?: {
+    sma_short: number;
+    sma_long: number;
+    rsi_period: number;
+    breakout_days: number;
+  };
+
+  // Universe Filtration (Step 7)
+  universe_filtration?: {
+    min_market_cap_b: number;
+    index_filter: string;
+    min_daily_volume: number;
+  };
 }
 
 const steps = [

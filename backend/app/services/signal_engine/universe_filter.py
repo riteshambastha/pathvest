@@ -6,7 +6,6 @@ Creates the initial universe of equities based on Point-in-Time criteria
 from typing import List, Dict, Any, Optional
 from datetime import date, datetime
 from app.services.postgres_service import get_postgres_service
-from google.cloud import postgres
 
 
 class UniverseFilter:
@@ -116,12 +115,12 @@ class UniverseFilter:
             ORDER BY uc.ticker
         """
         
-        params = [
-            postgres.ScalarQueryParameter("index_name", "STRING", index_name),
-            postgres.ScalarQueryParameter("as_of_date", "DATE", as_of_date),
-            postgres.ScalarQueryParameter("lookback_start", "DATE", lookback_start),
-            postgres.ScalarQueryParameter("min_market_cap", "FLOAT64", min_market_cap)
-        ]
+        params = {
+            "index_name": index_name,
+            "as_of_date": as_of_date,
+            "lookback_start": lookback_start,
+            "min_market_cap": min_market_cap
+        }
         
         try:
             results = await self.postgres_service.execute_query(query, params)

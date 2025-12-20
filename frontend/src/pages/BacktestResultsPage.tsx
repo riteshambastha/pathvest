@@ -26,15 +26,15 @@ const BacktestResultsPage: React.FC = () => {
 
   useEffect(() => {
     if (backtestId) {
-      // Start minimum loading time timer - 60 seconds
+      // Start minimum loading time timer - 3 seconds (just enough to show we're processing)
       const timer = setTimeout(() => {
         setMinLoadingTimeElapsed(true);
-      }, 60000); // 60 seconds
+      }, 3000); // 3 seconds - reduced from 60s for better UX
       
-      // After 10 seconds, allow manual close
+      // After 3 seconds, allow manual close
       const manualCloseTimer = setTimeout(() => {
         setCanManuallyClose(true);
-      }, 10000); // 10 seconds
+      }, 3000); // 3 seconds
       
       loadResults();
       
@@ -48,7 +48,7 @@ const BacktestResultsPage: React.FC = () => {
   const loadResults = async () => {
     try {
       const startTime = Date.now();
-      const MIN_LOADING_TIME = 60000; // Show loading for at least 60 seconds
+      const MIN_LOADING_TIME = 3000; // Show loading for at least 3 seconds - reduced from 60s for better UX
       
       // Poll for completion if backtest is still running
       let attempts = 0;
@@ -392,6 +392,69 @@ const BacktestResultsPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">{error || 'Results not found'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check for empty results
+  const hasTrades = results.trades && results.trades.length > 0;
+  const hasStocks = results.stocks_analyzed && results.stocks_analyzed.length > 0;
+  const hasSignals = (results as any).institutional_signals?.sec_filings_fetched > 0;
+
+  if (!hasTrades && !hasStocks && !hasSignals) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100 mb-4">
+              <svg className="h-8 w-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Trading Data Found</h2>
+            <p className="text-gray-600 mb-6">
+              Your backtest completed successfully but didn't find any trading opportunities.
+              This usually means one of the following:
+            </p>
+
+            <div className="bg-gray-50 rounded-lg p-6 text-left mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">Possible Causes:</h3>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-start">
+                  <span className="text-red-500 mr-2">•</span>
+                  <span><strong>No institutions selected:</strong> Make sure to select institutions in Step 2</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-orange-500 mr-2">•</span>
+                  <span><strong>Date range too narrow:</strong> Try expanding the date range or using future dates (2025+)</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-500 mr-2">•</span>
+                  <span><strong>No SEC filings found:</strong> The selected institutions may not have filed 13F forms in your date range</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-purple-500 mr-2">•</span>
+                  <span><strong>API key issues:</strong> Stock price fetching failed (check AlphaVantage API key)</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-4 justify-center">
+              <button
+                onClick={() => window.history.back()}
+                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              >
+                ← Go Back & Edit
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Try Different Settings
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

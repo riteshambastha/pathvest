@@ -70,7 +70,12 @@ def test_basic_backtest():
     # Initialize LEAN engine
     print("\n🚀 Initializing LEAN Engine...")
     try:
-        engine = LEANBacktestEngine()
+        from datetime import datetime
+        engine = LEANBacktestEngine(
+            start_date=datetime(2023, 1, 1),
+            end_date=datetime(2023, 12, 31),
+            initial_cash=100000
+        )
         print("✅ LEAN Engine initialized successfully")
     except Exception as e:
         print(f"❌ Failed to initialize LEAN Engine: {e}")
@@ -176,7 +181,12 @@ def test_fractional_shares():
     
     print("\n⚙️  Running backtest...")
     try:
-        engine = LEANBacktestEngine()
+        from datetime import datetime
+        engine = LEANBacktestEngine(
+            start_date=datetime(2023, 6, 1),
+            end_date=datetime(2023, 6, 30),
+            initial_cash=1000
+        )
         results = engine.run_backtest(strategy_config)
         
         trades = results.get("trades", [])

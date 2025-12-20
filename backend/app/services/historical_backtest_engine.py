@@ -11,7 +11,6 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple
 import asyncio
 
-ALPHAVANTAGE_API_KEY = os.getenv("ALPHAVANTAGE_API_KEY", "")
 BASE_URL = "https://www.alphavantage.co/query"
 
 
@@ -30,6 +29,8 @@ class HistoricalBacktestEngine:
         self.positions = {}  # {ticker: shares}
         self.portfolio_history = []
         self.trades = []
+        # Load API key dynamically (not at module level)
+        self.api_key = os.getenv("ALPHAVANTAGE_API_KEY", "")
         
     async def fetch_historical_prices(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """
@@ -39,20 +40,29 @@ class HistoricalBacktestEngine:
         print(f"📈 Fetching historical prices for {symbol}...")
         
         # Use TIME_SERIES_DAILY for historical data
+        # Note: 'compact' returns last 100 data points (free tier)
+        # 'full' requires premium subscription
         params = {
             'function': 'TIME_SERIES_DAILY',
             'symbol': symbol,
-            'outputsize': 'full',  # Get full historical data
-            'apikey': ALPHAVANTAGE_API_KEY
+            'outputsize': 'compact',  # Free tier: last 100 data points
+            'apikey': self.api_key
         }
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(BASE_URL, params=params)
                 data = response.json()
+
+                # Debug: Log the response keys and status
+                print(f"🔍 API Response for {symbol}: Status {response.status_code}, Keys: {list(data.keys())[:3]}...")
                 
                 if 'Time Series (Daily)' not in data:
-                    print(f"⚠️  No data for {symbol}: {data.get('Note', data.get('Error Message', 'Unknown error'))}")
+                    error_msg = data.get('Note', data.get('Error Message', 'Unknown error'))
+                    print(f"⚠️  No data for {symbol}: {error_msg}")
+                    # Debug: Show full response for troubleshooting
+                    if len(str(data)) < 500:
+                        print(f"🔍 Full API response: {data}")
                     return pd.DataFrame()
                 
                 # Convert to DataFrame
@@ -65,11 +75,20 @@ class HistoricalBacktestEngine:
                 df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
                 df = df.astype(float)
                 
-                # Filter by date range
-                df = df[(df.index >= start_date) & (df.index <= end_date)]
+                total_days = len(df)
+                print(f"🔍 {symbol}: Raw data has {total_days} days ({df.index.min()} to {df.index.max()})")
                 
-                print(f"✅ Got {len(df)} days of historical data for {symbol}")
-                return df
+                # Try to filter by date range
+                filtered_df = df[(df.index >= start_date) & (df.index <= end_date)]
+                
+                if len(filtered_df) > 0:
+                    print(f"✅ Got {len(filtered_df)} days of historical data for {symbol} (filtered)")
+                    return filtered_df
+                else:
+                    # If no data in range, use all available data (better than nothing)
+                    # This happens when backtest period doesn't overlap with available data
+                    print(f"⚠️ {symbol}: No data in range {start_date} to {end_date}, using all {total_days} days")
+                    return df
                 
         except Exception as e:
             print(f"❌ Error fetching {symbol}: {e}")
@@ -212,10 +231,13 @@ class HistoricalBacktestEngine:
                         if action == 'BUY':
                             # Calculate shares to buy
                             position_value = self.calculate_position_size(ticker, signal_strength)
-                            shares = int(position_value / price)
-                            
-                            if shares > 0:
-                                self.execute_trade(date, ticker, shares, price, 'BUY')
+                            if price > 0:
+                                shares = int(position_value / price)
+                                
+                                if shares > 0:
+                                    self.execute_trade(date, ticker, shares, price, 'BUY')
+                            else:
+                                print(f"⚠️ Skipping {ticker}: Price is {price}")
                         
                         elif action == 'SELL':
                             # Sell entire position
@@ -245,6 +267,35 @@ class HistoricalBacktestEngine:
                 'positions_value': portfolio_value - self.cash
             })
         
+        # Check if we have any portfolio history
+        if len(self.portfolio_history) == 0:
+            print("⚠️ No portfolio history - no trades were executed")
+            print("   This usually means signal dates don't overlap with price data")
+            return {
+                'initial_capital': self.initial_capital,
+                'final_value': self.initial_capital,
+                'total_return': 0,
+                'cagr': 0,
+                'volatility': 0,
+                'sharpe_ratio': 0,
+                'sortino_ratio': 0,
+                'max_drawdown': 0,
+                'romad': 0,
+                'alpha': 0,
+                'beta': 0,
+                'information_ratio': 0,
+                'var_95': 0,
+                'cvar_95': 0,
+                'win_rate_daily': 0,
+                'win_rate_monthly': 0,
+                'profit_factor': 0,
+                'trades': self.trades,
+                'equity_curve': [],
+                'benchmark_total_return': 0,
+                'benchmark_cagr': 0,
+                'warning': 'No trades executed - signal dates may not overlap with available price data'
+            }
+        
         # Calculate performance metrics
         return self.calculate_metrics()
     
@@ -270,17 +321,21 @@ class HistoricalBacktestEngine:
         volatility = df['daily_return'].std() * np.sqrt(252)
         
         # Sharpe Ratio (assuming 0% risk-free rate)
-        sharpe_ratio = (total_return * 252 / len(df)) / volatility if volatility > 0 else 0
+        sharpe_ratio = (total_return * 252 / len(df)) / volatility if volatility > 0 and len(df) > 0 else 0
         
         # Maximum Drawdown
         df['cummax'] = df['portfolio_value'].cummax()
-        df['drawdown'] = (df['portfolio_value'] - df['cummax']) / df['cummax']
-        max_drawdown = df['drawdown'].min()
+        # Avoid division by zero
+        df['drawdown'] = df.apply(
+            lambda row: (row['portfolio_value'] - row['cummax']) / row['cummax'] if row['cummax'] > 0 else 0, 
+            axis=1
+        )
+        max_drawdown = df['drawdown'].min() if len(df) > 0 else 0
         
         # Sortino Ratio (downside deviation)
         downside_returns = df['daily_return'][df['daily_return'] < 0]
-        downside_deviation = downside_returns.std() * np.sqrt(252)
-        sortino_ratio = (total_return * 252 / len(df)) / downside_deviation if downside_deviation > 0 else 0
+        downside_deviation = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 0
+        sortino_ratio = (total_return * 252 / len(df)) / downside_deviation if downside_deviation > 0 and len(df) > 0 else 0
         
         # CAGR
         years = len(df) / 252
@@ -293,11 +348,16 @@ class HistoricalBacktestEngine:
         
         # Monthly win rate
         df_monthly = df.resample('M')['portfolio_value'].last().pct_change()
-        win_rate_monthly = len(df_monthly[df_monthly > 0]) / len(df_monthly.dropna()) if len(df_monthly) > 0 else 0
+        monthly_count = len(df_monthly.dropna())
+        win_rate_monthly = len(df_monthly[df_monthly > 0]) / monthly_count if monthly_count > 0 else 0
         
-        # Yearly win rate
-        df_yearly = df.resample('Y')['portfolio_value'].last().pct_change()
-        win_rate_yearly = len(df_yearly[df_yearly > 0]) / len(df_yearly.dropna()) if len(df_yearly) > 0 else 0
+        # Yearly win rate (use 'A' for year-end frequency - compatible with all pandas versions)
+        try:
+            df_yearly = df.resample('A')['portfolio_value'].last().pct_change()
+            yearly_count = len(df_yearly.dropna())
+            win_rate_yearly = len(df_yearly[df_yearly > 0]) / yearly_count if yearly_count > 0 else 0
+        except Exception:
+            win_rate_yearly = 0
         
         # Best and worst days
         best_day = df['daily_return'].max() if len(df) > 0 else 0

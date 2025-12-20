@@ -12,7 +12,6 @@ Per SRS FR-3.1.C.11:
 from typing import Dict, List, Optional, Tuple
 from datetime import date, datetime, timedelta
 from dataclasses import dataclass
-from google.cloud import postgres
 import os
 
 
@@ -46,7 +45,7 @@ class ThesisDriftModule:
     
     DEFAULT_REDUCTION_THRESHOLD = 0.25  # 25% reduction
     
-    def __init__(self, bq_client: Optional[postgres.Client] = None):
+    def __init__(self, postgres_service = None):
         """
         Initialize Thesis Drift Module
         
@@ -291,7 +290,8 @@ def test_thesis_drift_module():
     
     try:
         # Initialize PostgreSQL client
-        client = postgres.Client()
+        from app.services.postgres_service import get_postgres_service
+        client = get_postgres_service()
         print("✅ PostgreSQL client initialized")
     except Exception as e:
         print(f"⚠️  PostgreSQL not available: {e}")
