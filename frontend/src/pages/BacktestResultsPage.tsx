@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import Plot from 'react-plotly.js';
 import {
   getBacktestResults,
   getBacktestStatus,
@@ -1011,249 +1012,452 @@ const SummaryTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
   );
 };
 
-// Overview Tab
-const OverviewTab: React.FC<{ results: BacktestResponse }> = ({ results }) => (
-  <div className="space-y-6">
-    {/* Real Data Summary */}
-    {(results as any).real_market_data && (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow rounded-lg p-6 border border-blue-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">📊 Real Market Data Used in This Backtest</h3>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            ✓ Verified Real Data
-          </span>
+// Overview Tab - Corporate Dashboard Design
+const OverviewTab: React.FC<{ results: BacktestResponse }> = ({ results }) => {
+  const totalReturn = results.summary.total_return;
+  const isPositive = totalReturn > 0;
+  const initialCapital = results.initial_capital || 1000000;
+  const finalValue = results.equity_curve?.portfolio_values?.[results.equity_curve.portfolio_values.length - 1] || initialCapital;
+  const profitLoss = finalValue - initialCapital;
+  
+  // Calculate metrics for display
+  const formatCurrency = (value: number) => {
+    if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+    if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+    return `$${value.toFixed(0)}`;
+  };
+  
+  const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
+  
+  return (
+    <div className="space-y-8">
+      {/* ========== HERO PERFORMANCE SECTION ========== */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 shadow-2xl">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#grid)"/>
+          </svg>
         </div>
         
-        {/* Data Source Information */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
-            <div className="text-sm text-gray-500">Data Source</div>
-            <div className="text-lg font-bold text-gray-900 capitalize">
-              {(results as any).real_market_data?.data_source || 'AlphaVantage'}
+        <div className="relative">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Portfolio Performance</p>
+              <h2 className="text-white text-2xl font-bold mt-1">Strategy Overview</h2>
             </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
-            <div className="text-sm text-gray-500">API Calls Made</div>
-            <div className="text-lg font-bold text-gray-900">
-              {(results as any).api_calls_made || (results as any).real_market_data?.api_calls || 0}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
-            <div className="text-sm text-gray-500">SEC Filings Analyzed</div>
-            <div className="text-lg font-bold text-gray-900">
-              {(results as any).sec_filings_fetched || 0}
-            </div>
-          </div>
-        </div>
-        
-        {/* Stocks Analyzed */}
-        {(results as any).stocks_analyzed && (results as any).stocks_analyzed.length > 0 && (
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-sm text-gray-500 mb-2">Stocks Analyzed</div>
-            <div className="flex flex-wrap gap-2">
-              {(results as any).stocks_analyzed.map((stock: string) => (
-                <span key={stock} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                  {stock}
+            <div className="flex items-center gap-3">
+              {(results as any).real_market_data && (
+                <span className="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></span>
+                  LIVE DATA
                 </span>
-              ))}
+              )}
+              <span className="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                {results.trades?.length || 0} TRADES
+              </span>
             </div>
           </div>
-        )}
-        
-        {/* Note */}
-        {(results as any).real_market_data?.note && (
-          <div className="mt-4 text-sm text-gray-600 italic">
-            ℹ️ {(results as any).real_market_data.note}
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* Institutional Signals - NEW! */}
-    {(results as any).institutional_signals && Object.keys((results as any).institutional_signals).length > 0 && (
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 shadow rounded-lg p-6 border border-purple-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">🏦 Institutional Signals Detected</h3>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-            Smart Money Following
-          </span>
-        </div>
-
-        {(results as any).selected_institutions && (results as any).selected_institutions.length > 0 && (
-          <div className="mb-4 p-3 bg-white rounded-lg">
-            <p className="text-sm text-gray-700">
-              <span className="font-semibold">Following {(results as any).selected_institutions.length} institution(s):</span>
-              {' '}{(results as any).selected_institutions.join(', ')}
-            </p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
-            <div className="text-sm text-gray-500">SEC Filings Analyzed</div>
-            <div className="text-2xl font-bold text-purple-600">
-              {(results as any).institutional_signals?.sec_filings_fetched || 0}
+          
+          {/* Main Metrics Grid */}
+          <div className="grid grid-cols-4 gap-6">
+            {/* Total Return - Hero Metric */}
+            <div className="col-span-2 bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+              <p className="text-slate-400 text-sm font-medium mb-2">Total Return</p>
+              <div className="flex items-baseline gap-3">
+                <span className={`text-5xl font-bold tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {formatPercent(totalReturn)}
+                </span>
+                <span className={`text-sm font-medium px-2 py-1 rounded ${isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                  {isPositive ? '↑ Profit' : '↓ Loss'}
+                </span>
+              </div>
+              <p className="text-slate-500 text-sm mt-3">
+                {formatCurrency(profitLoss)} {isPositive ? 'gained' : 'lost'} on {formatCurrency(initialCapital)} initial capital
+              </p>
             </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
-            <div className="text-sm text-gray-500">Institutions Tracked</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {(results as any).institutional_signals?.institutions_tracked || 0}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
-            <div className="text-sm text-gray-500">Mode</div>
-            <div className="text-lg font-bold text-green-600">
-              {(results as any).institutional_signals?.simulation_mode ? '🧪 Simulation' : '📊 Real Data'}
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Equity Curve */}
-    <div className="bg-white shadow rounded-lg p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Equity Curve</h3>
-      {results.equity_curve && results.equity_curve.dates && results.equity_curve.dates.length > 0 ? (
-        <div className="space-y-4">
-          <div className="h-64 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4">
-            <div className="h-full flex flex-col justify-between">
-              {results.equity_curve.portfolio_values.map((value, idx) => (
-                <div key={idx} className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">{results.equity_curve.dates[idx]}</span>
-                  <div className="flex-1 mx-4">
-                    <div className="bg-blue-200 h-2 rounded-full" style={{width: `${(value / (results.initial_capital || 100000)) * 100}%`}}></div>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-900">${(value / 1000).toFixed(1)}K</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-green-50 rounded-lg">
-              <div className="text-sm text-gray-600">Final Value</div>
-              <div className="text-xl font-bold text-green-600">
-                ${(results.equity_curve.portfolio_values[results.equity_curve.portfolio_values.length - 1] / 1000).toFixed(1)}K
+            
+            {/* Final Portfolio Value */}
+            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+              <p className="text-slate-400 text-sm font-medium mb-2">Final Value</p>
+              <p className="text-3xl font-bold text-white">{formatCurrency(finalValue)}</p>
+              <div className="mt-3 flex items-center text-sm">
+                <span className="text-slate-500">From</span>
+                <span className="text-slate-300 ml-1">{formatCurrency(initialCapital)}</span>
               </div>
             </div>
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <div className="text-sm text-gray-600">Growth</div>
-              <div className="text-xl font-bold text-blue-600">
-                {((results.equity_curve.portfolio_values[results.equity_curve.portfolio_values.length - 1] / (results.initial_capital || 100000) - 1) * 100).toFixed(1)}%
+            
+            {/* Sharpe Ratio */}
+            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+              <p className="text-slate-400 text-sm font-medium mb-2">Sharpe Ratio</p>
+              <p className={`text-3xl font-bold ${results.summary.sharpe_ratio > 1 ? 'text-emerald-400' : results.summary.sharpe_ratio > 0.5 ? 'text-amber-400' : 'text-rose-400'}`}>
+                {results.summary.sharpe_ratio.toFixed(2)}
+              </p>
+              <p className="text-slate-500 text-sm mt-3">
+                {results.summary.sharpe_ratio > 1.5 ? 'Excellent' : results.summary.sharpe_ratio > 1 ? 'Good' : results.summary.sharpe_ratio > 0.5 ? 'Moderate' : 'Poor'}
+              </p>
+            </div>
+          </div>
+          
+          {/* Secondary Metrics Row */}
+          <div className="grid grid-cols-5 gap-4 mt-6">
+            <div className="text-center p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">Max Drawdown</p>
+              <p className="text-xl font-semibold text-rose-400 mt-1">{(Math.abs(results.summary.max_drawdown) * 100).toFixed(1)}%</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">CAGR</p>
+              <p className={`text-xl font-semibold mt-1 ${results.summary.cagr > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {(results.summary.cagr * 100).toFixed(1)}%
+              </p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">Win Rate</p>
+              <p className={`text-xl font-semibold mt-1 ${results.summary.win_rate_daily > 0.5 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {(results.summary.win_rate_daily * 100).toFixed(0)}%
+              </p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">Volatility</p>
+              <p className="text-xl font-semibold text-slate-300 mt-1">{(results.summary.volatility * 100).toFixed(1)}%</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">Alpha</p>
+              <p className={`text-xl font-semibold mt-1 ${results.summary.alpha > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {formatPercent(results.summary.alpha)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* ========== EQUITY CURVE CHART ========== */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Portfolio Growth</h3>
+              <p className="text-sm text-slate-500 mt-0.5">Equity curve over the backtest period</p>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-slate-600">Strategy</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-slate-300"></div>
+                <span className="text-slate-600">Benchmark</span>
               </div>
             </div>
           </div>
         </div>
-      ) : (
-        <div className="h-64 bg-gray-100 rounded flex items-center justify-center">
-          <p className="text-gray-500">No equity curve data available</p>
+        <div className="p-6">
+          {results.equity_curve && results.equity_curve.dates && results.equity_curve.dates.length > 0 ? (
+            <div className="h-80">
+              <Plot
+                data={[
+                  {
+                    x: results.equity_curve.dates,
+                    y: results.equity_curve.portfolio_values,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Strategy',
+                    fill: 'tozeroy',
+                    fillcolor: 'rgba(59, 130, 246, 0.1)',
+                    line: { color: '#3b82f6', width: 2.5 },
+                    hovertemplate: '<b>%{x}</b><br>Value: $%{y:,.0f}<extra></extra>',
+                  },
+                  ...(results.equity_curve.benchmark_values ? [{
+                    x: results.equity_curve.dates,
+                    y: results.equity_curve.benchmark_values,
+                    type: 'scatter' as const,
+                    mode: 'lines' as const,
+                    name: 'S&P 500',
+                    line: { color: '#94a3b8', width: 2, dash: 'dot' as const },
+                    hovertemplate: '<b>%{x}</b><br>Benchmark: $%{y:,.0f}<extra></extra>',
+                  }] : []),
+                ]}
+                layout={{
+                  autosize: true,
+                  margin: { l: 60, r: 20, t: 20, b: 50 },
+                  paper_bgcolor: 'transparent',
+                  plot_bgcolor: 'transparent',
+                  xaxis: {
+                    showgrid: true,
+                    gridcolor: '#f1f5f9',
+                    tickfont: { size: 11, color: '#64748b' },
+                  },
+                  yaxis: {
+                    showgrid: true,
+                    gridcolor: '#f1f5f9',
+                    tickformat: '$,.0f',
+                    tickfont: { size: 11, color: '#64748b' },
+                  },
+                  showlegend: false,
+                  hovermode: 'x unified',
+                }}
+                config={{ displayModeBar: false, responsive: true }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
+          ) : (
+            <div className="h-80 flex items-center justify-center bg-slate-50 rounded-xl">
+              <div className="text-center">
+                <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                </svg>
+                <p className="text-slate-500 font-medium">No equity data available</p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-
-    {/* Performance Metrics */}
-    <div className="bg-white shadow rounded-lg p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Performance Metrics (From Real Data)</h3>
-      <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">CAGR</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {(results.summary.cagr * 100).toFixed(2)}%
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">Volatility</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {(results.summary.volatility * 100).toFixed(2)}%
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">Sortino Ratio</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {results.summary.sortino_ratio.toFixed(2)}
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">Beta</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {results.summary.beta.toFixed(2)}
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">Information Ratio</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {results.summary.information_ratio.toFixed(2)}
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">VaR (95%)</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {(results.summary.var_95 * 100).toFixed(2)}%
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">CVaR (95%)</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {(results.summary.cvar_95 * 100).toFixed(2)}%
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">Win Rate (Daily)</dt>
-          <dd className="mt-1 text-2xl font-semibold text-gray-900">
-            {(results.summary.win_rate_daily * 100).toFixed(1)}%
-          </dd>
-        </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <dt className="text-sm font-medium text-gray-500">Best Day</dt>
-          <dd className="mt-1 text-2xl font-semibold text-green-600">
-            +{(results.summary.best_day * 100).toFixed(2)}%
-          </dd>
-        </div>
-      </dl>
-    </div>
-
-    {/* Benchmark Comparison */}
-    <div className="bg-white shadow rounded-lg p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">vs Benchmark (S&P 500)</h3>
+      </div>
+      
+      {/* ========== DATA SOURCES PANEL ========== */}
       <div className="grid grid-cols-2 gap-6">
-        <div>
-          <div className="text-sm text-gray-500 mb-2">Strategy Performance</div>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-              <span className="text-sm font-medium">Total Return</span>
-              <span className="text-lg font-bold text-blue-600">{(results.summary.total_return * 100).toFixed(2)}%</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-              <span className="text-sm font-medium">CAGR</span>
-              <span className="text-lg font-bold text-blue-600">{(results.summary.cagr * 100).toFixed(2)}%</span>
+        {/* Market Data Card */}
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Market Data Source</h3>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                AlphaVantage API
+              </span>
             </div>
           </div>
-        </div>
-        <div>
-          <div className="text-sm text-gray-500 mb-2">Benchmark Performance</div>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span className="text-sm font-medium">Total Return</span>
-              <span className="text-lg font-bold text-gray-600">{(results.summary.benchmark_total_return * 100).toFixed(2)}%</span>
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-xl">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">API Calls</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {(results as any).api_calls_made || (results as any).real_market_data?.api_calls || 0}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Stocks Fetched</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {(results as any).stocks_analyzed?.length || 0}
+                </p>
+              </div>
             </div>
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span className="text-sm font-medium">CAGR</span>
-              <span className="text-lg font-bold text-gray-600">{(results.summary.benchmark_cagr * 100).toFixed(2)}%</span>
+            
+            {/* Stock Tickers */}
+            {(results as any).stocks_analyzed && (results as any).stocks_analyzed.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Securities Analyzed</p>
+                <div className="flex flex-wrap gap-2">
+                  {(results as any).stocks_analyzed.slice(0, 12).map((stock: string) => (
+                    <span key={stock} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                      {stock}
+                    </span>
+                  ))}
+                  {(results as any).stocks_analyzed.length > 12 && (
+                    <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 text-slate-500">
+                      +{(results as any).stocks_analyzed.length - 12} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Institutional Data Card */}
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-purple-50 to-pink-50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Institutional Intelligence</h3>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                SEC EDGAR
+              </span>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-xl">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">13F Filings</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {(results as any).sec_filings_fetched || (results as any).institutional_signals?.sec_filings_fetched || 0}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Institutions</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
+                  {(results as any).institutional_signals?.institutions_tracked || (results as any).selected_institutions?.length || 0}
+                </p>
+              </div>
+            </div>
+            
+            {/* Institutions List */}
+            {(results as any).selected_institutions && (results as any).selected_institutions.length > 0 && (
+              <div className="mt-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+                <p className="text-xs font-medium text-purple-700 uppercase tracking-wider mb-2">Tracked Institutions</p>
+                <p className="text-sm text-purple-900">
+                  {(results as any).selected_institutions.slice(0, 3).join(', ')}
+                  {(results as any).selected_institutions.length > 3 && ` +${(results as any).selected_institutions.length - 3} more`}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* ========== DETAILED METRICS TABLE ========== */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <h3 className="text-lg font-semibold text-slate-900">Performance Metrics</h3>
+          <p className="text-sm text-slate-500 mt-0.5">Comprehensive risk and return analysis</p>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-4 gap-px bg-slate-200 rounded-xl overflow-hidden">
+            {/* Returns Section */}
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Return</p>
+              <p className={`text-2xl font-bold mt-1 ${results.summary.total_return >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {formatPercent(results.summary.total_return)}
+              </p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">CAGR</p>
+              <p className={`text-2xl font-bold mt-1 ${results.summary.cagr >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {formatPercent(results.summary.cagr)}
+              </p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Best Day</p>
+              <p className="text-2xl font-bold mt-1 text-emerald-600">
+                +{(results.summary.best_day * 100).toFixed(2)}%
+              </p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Worst Day</p>
+              <p className="text-2xl font-bold mt-1 text-rose-600">
+                {(results.summary.worst_day * 100).toFixed(2)}%
+              </p>
+            </div>
+            
+            {/* Risk Section */}
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Volatility</p>
+              <p className="text-2xl font-bold mt-1 text-slate-900">{(results.summary.volatility * 100).toFixed(2)}%</p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Max Drawdown</p>
+              <p className="text-2xl font-bold mt-1 text-rose-600">{(Math.abs(results.summary.max_drawdown) * 100).toFixed(2)}%</p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">VaR (95%)</p>
+              <p className="text-2xl font-bold mt-1 text-amber-600">{(results.summary.var_95 * 100).toFixed(2)}%</p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">CVaR (95%)</p>
+              <p className="text-2xl font-bold mt-1 text-amber-600">{(results.summary.cvar_95 * 100).toFixed(2)}%</p>
+            </div>
+            
+            {/* Ratios Section */}
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sharpe Ratio</p>
+              <p className={`text-2xl font-bold mt-1 ${results.summary.sharpe_ratio >= 1 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                {results.summary.sharpe_ratio.toFixed(2)}
+              </p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sortino Ratio</p>
+              <p className={`text-2xl font-bold mt-1 ${results.summary.sortino_ratio >= 1 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                {results.summary.sortino_ratio.toFixed(2)}
+              </p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Info Ratio</p>
+              <p className="text-2xl font-bold mt-1 text-slate-900">{results.summary.information_ratio.toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Beta</p>
+              <p className="text-2xl font-bold mt-1 text-slate-900">{results.summary.beta.toFixed(2)}</p>
             </div>
           </div>
         </div>
       </div>
-      <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-green-900">Outperformance</span>
-          <span className="text-2xl font-bold text-green-600">
-            +{((results.summary.total_return - results.summary.benchmark_total_return) * 100).toFixed(2)}%
-          </span>
+      
+      {/* ========== BENCHMARK COMPARISON ========== */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <h3 className="text-lg font-semibold text-slate-900">Benchmark Comparison</h3>
+          <p className="text-sm text-slate-500 mt-0.5">Strategy performance vs. S&P 500</p>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-3 gap-6">
+            {/* Strategy Column */}
+            <div className="p-6 bg-blue-50 rounded-xl border border-blue-100">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <p className="text-sm font-semibold text-blue-900">Your Strategy</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-blue-700 uppercase tracking-wider">Total Return</p>
+                  <p className="text-3xl font-bold text-blue-900">{formatPercent(results.summary.total_return)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-blue-700 uppercase tracking-wider">CAGR</p>
+                  <p className="text-xl font-semibold text-blue-800">{formatPercent(results.summary.cagr)}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Benchmark Column */}
+            <div className="p-6 bg-slate-100 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
+                <p className="text-sm font-semibold text-slate-700">S&P 500</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-slate-600 uppercase tracking-wider">Total Return</p>
+                  <p className="text-3xl font-bold text-slate-700">{formatPercent(results.summary.benchmark_total_return)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-600 uppercase tracking-wider">CAGR</p>
+                  <p className="text-xl font-semibold text-slate-600">{formatPercent(results.summary.benchmark_cagr)}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Alpha Column */}
+            <div className={`p-6 rounded-xl border ${results.summary.alpha >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className={`w-3 h-3 rounded-full ${results.summary.alpha >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                <p className={`text-sm font-semibold ${results.summary.alpha >= 0 ? 'text-emerald-900' : 'text-rose-900'}`}>
+                  {results.summary.alpha >= 0 ? 'Outperformance' : 'Underperformance'}
+                </p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className={`text-xs uppercase tracking-wider ${results.summary.alpha >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Alpha</p>
+                  <p className={`text-3xl font-bold ${results.summary.alpha >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {formatPercent(results.summary.alpha)}
+                  </p>
+                </div>
+                <div>
+                  <p className={`text-xs uppercase tracking-wider ${results.summary.alpha >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Excess Return</p>
+                  <p className={`text-xl font-semibold ${results.summary.alpha >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {formatPercent(results.summary.total_return - results.summary.benchmark_total_return)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Helper function to get exit signal styling
 const getExitSignalStyle = (exitReason: string) => {
@@ -1824,4 +2028,6 @@ const ExportTab: React.FC<{
 );
 
 export default BacktestResultsPage;
+
+
 
