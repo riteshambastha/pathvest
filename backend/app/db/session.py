@@ -11,22 +11,29 @@ from app.core.config import settings
 # For serverless/managed PostgreSQL, use NullPool to avoid connection issues
 is_production = settings.ENVIRONMENT == "production"
 
-# Create async engine with resilience settings
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    # Use NullPool for production to avoid SSL connection issues
-    poolclass=NullPool if is_production else None,
-    pool_size=None if is_production else settings.DATABASE_POOL_SIZE,
-    max_overflow=None if is_production else settings.DATABASE_MAX_OVERFLOW,
-    # Pre-ping to check connection health before using
-    pool_pre_ping=True,
-    # Connection timeout
-    connect_args={
+# Build engine kwargs based on environment
+engine_kwargs = {
+    "echo": settings.DEBUG,
+}
+
+# Add asyncpg-specific connection args
+if "asyncpg" in settings.DATABASE_URL:
+    engine_kwargs["connect_args"] = {
         "server_settings": {"statement_timeout": "60000"},  # 60 seconds
         "command_timeout": 60,
-    } if "asyncpg" in settings.DATABASE_URL else {},
-    echo=settings.DEBUG,
-)
+    }
+
+if is_production:
+    # Use NullPool for production - no pool_size/max_overflow allowed
+    engine_kwargs["poolclass"] = NullPool
+else:
+    # Use connection pooling for development
+    engine_kwargs["pool_size"] = settings.DATABASE_POOL_SIZE
+    engine_kwargs["max_overflow"] = settings.DATABASE_MAX_OVERFLOW
+    engine_kwargs["pool_pre_ping"] = True
+
+# Create async engine
+engine = create_async_engine(settings.DATABASE_URL, **engine_kwargs)
 
 # Create async session factory
 AsyncSessionLocal = sessionmaker(
