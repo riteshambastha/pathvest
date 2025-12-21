@@ -31,7 +31,39 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
     // Fetch available institutions
     apiClient.get('/api/v1/sec/institutions')
       .then(res => {
-        setInstitutions(res.data || []);
+        const rawInstitutions = res.data || [];
+        
+        // Deduplicate institutions by normalized CIK
+        // Some institutions appear twice with different CIK formats (e.g., "0001067983" vs "1067983")
+        const normalizedMap = new Map<string, Institution>();
+        
+        rawInstitutions.forEach((inst: Institution) => {
+          // Normalize CIK by removing leading zeros
+          const normalizedCik = inst.cik.replace(/^0+/, '');
+          
+          // Keep the entry with is_popular=true, or the one with more data (AUM)
+          const existing = normalizedMap.get(normalizedCik);
+          if (!existing || inst.is_popular || (inst.aum && !existing.aum)) {
+            normalizedMap.set(normalizedCik, {
+              ...inst,
+              // Keep the original CIK format for API calls
+              cik: inst.cik
+            });
+          }
+        });
+        
+        // Convert map to array and sort by popularity then name
+        const uniqueInstitutions = Array.from(normalizedMap.values())
+          .sort((a, b) => {
+            // Popular first
+            if (a.is_popular && !b.is_popular) return -1;
+            if (!a.is_popular && b.is_popular) return 1;
+            // Then by name
+            return a.name.localeCompare(b.name);
+          });
+        
+        console.log(`📊 Loaded ${rawInstitutions.length} institutions, deduplicated to ${uniqueInstitutions.length}`);
+        setInstitutions(uniqueInstitutions);
         setLoading(false);
       })
       .catch(err => {
