@@ -51,8 +51,8 @@ async def fetch_data():
             
             try:
                 # 1. Fetch Filings (Metadata)
-                # Fetch last 3 years of data
-                from_date = "2021-01-01"
+                # Fetch 10 years of historical data (2015 to present)
+                from_date = "2015-01-01"
                 to_date = datetime.now().strftime("%Y-%m-%d")
                 
                 logger.info(f"   📅 Fetching filings from {from_date} to {to_date}...")
@@ -63,7 +63,7 @@ async def fetch_data():
                     form_type="13F-HR",
                     from_date=from_date,
                     to_date=to_date,
-                    size=20, # Fetch up to 20 filings (5 years quarterly)
+                    size=50, # Fetch up to 50 filings (10+ years quarterly)
                     force_refresh=True
                 )
                 

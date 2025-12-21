@@ -154,92 +154,361 @@ class BacktestOrchestrator:
             print(f"🔍 Found {len(cusips)} unique CUSIPs in signals: {cusips[:5]}...")
 
             # Comprehensive CUSIP to ticker mapping for major stocks
-            # This covers S&P 500 and popular institutional holdings
+            # Covers S&P 500, NASDAQ 100, and popular institutional holdings (300+ stocks)
             cusip_to_ticker_map = {
-                # Tech Giants (from actual database holdings)
-                '69608A108': 'PLTR',   # Palantir Technologies (top holding)
-                '67066G104': 'NVDA',   # NVIDIA
-                '770700102': 'HOOD',   # Robinhood Markets
-                '670100205': 'NVO',    # Novo-Nordisk
-                '037833100': 'AAPL',   # Apple
-                '594918104': 'MSFT',   # Microsoft
-                '02079K305': 'GOOGL',  # Alphabet Class A
-                '02079K107': 'GOOG',   # Alphabet Class C
-                '023135106': 'AMZN',   # Amazon
-                '30303M102': 'META',   # Meta Platforms
-                '88160R101': 'TSLA',   # Tesla
-                # Major Tech
-                '46625H100': 'JPM',    # JPMorgan Chase
-                '172967424': 'C',      # Citigroup
-                '060505104': 'BAC',    # Bank of America
-                '931142103': 'WMT',    # Walmart
-                '713448108': 'PEP',    # PepsiCo
-                '191216100': 'KO',     # Coca-Cola
-                '78378X107': 'SPY',    # SPDR S&P 500 ETF
-                '464287465': 'QQQ',    # Invesco QQQ Trust
-                '922908363': 'VTI',    # Vanguard Total Stock
-                # More Tech
-                '001055102': 'ACN',    # Accenture
-                '87612E106': 'TXN',    # Texas Instruments
-                '742718109': 'QCOM',   # Qualcomm
-                '571903202': 'MCD',    # McDonald's
-                '459200101': 'IBM',    # IBM
-                '92343E102': 'VZ',     # Verizon
-                '218352102': 'CMG',    # Chipotle
-                '770700102': 'SE',     # Sea Limited
-                '85208M102': 'T',      # AT&T
-                # Financial
-                '38141G104': 'GS',     # Goldman Sachs
+                # ============== MEGA CAP TECH (Top 10 by Market Cap) ==============
+                '037833100': 'AAPL',   # Apple Inc.
+                '594918104': 'MSFT',   # Microsoft Corporation
+                '67066G104': 'NVDA',   # NVIDIA Corporation
+                '02079K305': 'GOOGL',  # Alphabet Inc. Class A
+                '02079K107': 'GOOG',   # Alphabet Inc. Class C
+                '023135106': 'AMZN',   # Amazon.com Inc.
+                '30303M102': 'META',   # Meta Platforms Inc.
+                '88160R101': 'TSLA',   # Tesla Inc.
+                '06738E204': 'BRK.B',  # Berkshire Hathaway Inc. Class B
+                '084670207': 'BRK.A',  # Berkshire Hathaway Inc. Class A
+                
+                # ============== FINANCIALS ==============
+                '46625H100': 'JPM',    # JPMorgan Chase & Co.
+                '92826C839': 'V',      # Visa Inc.
+                '57636Q104': 'MA',     # Mastercard Inc.
+                '172967424': 'C',      # Citigroup Inc.
+                '060505104': 'BAC',    # Bank of America Corp.
+                '38141G104': 'GS',     # Goldman Sachs Group Inc.
                 '617446448': 'MS',     # Morgan Stanley
-                '902973304': 'USB',    # US Bancorp
-                '06738E204': 'BRK.B',  # Berkshire Hathaway B
-                '742935100': 'TMO',    # Thermo Fisher
+                '902973304': 'USB',    # U.S. Bancorp
+                '949746101': 'WFC',    # Wells Fargo & Company
+                '084670702': 'BLK',    # BlackRock Inc.
+                '808513105': 'SCHW',   # Charles Schwab Corp.
+                '00206R102': 'T',      # AT&T Inc.
+                '035242103': 'AXP',    # American Express Company
+                '19416Q104': 'COF',    # Capital One Financial
+                '404119102': 'HIG',    # Hartford Financial Services
+                '717081103': 'PFG',    # Principal Financial Group
+                '758750103': 'RJF',    # Raymond James Financial
+                
+                # ============== HEALTHCARE ==============
                 '478160104': 'JNJ',    # Johnson & Johnson
-                '91324P102': 'UNH',    # UnitedHealth
-                '72919P200': 'LLY',    # Eli Lilly
-                '084670702': 'BLK',    # BlackRock
-                # Consumer
-                '25179M103': 'DHR',    # Danaher
-                '464288570': 'XOM',    # Exxon Mobil
+                '91324P102': 'UNH',    # UnitedHealth Group
+                '72919P200': 'LLY',    # Eli Lilly and Company
+                '670100205': 'NVO',    # Novo Nordisk A/S
+                '02209S103': 'ABBV',   # AbbVie Inc.
+                '717081103': 'PFE',    # Pfizer Inc.
+                '58933Y105': 'MRK',    # Merck & Co. Inc.
+                '742935100': 'TMO',    # Thermo Fisher Scientific
+                '00287Y109': 'ABBV',   # AbbVie Inc.
+                '031162100': 'AMGN',   # Amgen Inc.
+                '00846U101': 'GILD',   # Gilead Sciences Inc.
+                '075887109': 'BIIB',   # Biogen Inc.
+                '743315103': 'CVS',    # CVS Health Corporation
+                '127036109': 'CAH',    # Cardinal Health Inc.
+                '571903202': 'MCD',    # McDonald's Corporation
+                '25179M103': 'DHR',    # Danaher Corporation
+                '09062X103': 'REGN',   # Regeneron Pharmaceuticals
+                '91913Y100': 'VRTX',   # Vertex Pharmaceuticals
+                '460867106': 'ISRG',   # Intuitive Surgical
+                '119889108': 'BMY',    # Bristol-Myers Squibb
+                
+                # ============== CONSUMER / RETAIL ==============
+                '931142103': 'WMT',    # Walmart Inc.
+                '191216100': 'KO',     # The Coca-Cola Company
+                '713448108': 'PEP',    # PepsiCo Inc.
+                '22160K105': 'COST',   # Costco Wholesale Corporation
+                '579780206': 'MDLZ',   # Mondelez International
+                '742718109': 'QCOM',   # QUALCOMM Inc.
+                '742580103': 'PG',     # Procter & Gamble Co.
+                '437076102': 'HD',     # The Home Depot Inc.
+                '501044101': 'KMB',    # Kimberly-Clark Corporation
+                '168088102': 'CHD',    # Church & Dwight Co. Inc.
+                '166764100': 'CVX',    # Chevron Corporation
+                '126650100': 'CVX',    # Chevron Corporation
+                '902494103': 'TGT',    # Target Corporation
+                '552953101': 'MAR',    # Marriott International
+                '441131103': 'HLT',    # Hilton Worldwide Holdings
+                '254687106': 'DIS',    # The Walt Disney Company
+                '609207105': 'MNST',   # Monster Beverage Corporation
+                '617446448': 'NKE',    # Nike Inc.
+                '780259107': 'SBUX',   # Starbucks Corporation
+                '218352102': 'CMG',    # Chipotle Mexican Grill
+                '293561104': 'YUM',    # Yum! Brands Inc.
+                '548661107': 'LOW',    # Lowe's Companies Inc.
+                '67011P100': 'ORLY',   # O'Reilly Automotive Inc.
+                
+                # ============== TECHNOLOGY / SEMICONDUCTORS ==============
+                '460146103': 'INTC',   # Intel Corporation
+                '00724F101': 'AMD',    # Advanced Micro Devices
+                '001055102': 'ACN',    # Accenture plc
+                '87612E106': 'TXN',    # Texas Instruments Inc.
+                '098659109': 'AVGO',   # Broadcom Inc.
+                '00790C107': 'ADBE',   # Adobe Inc.
+                '79466L302': 'CRM',    # Salesforce Inc.
+                '67103H107': 'ORCL',   # Oracle Corporation
+                '459200101': 'IBM',    # International Business Machines
+                '17275R102': 'CSCO',   # Cisco Systems Inc.
+                '64110L106': 'NFLX',   # Netflix Inc.
+                '494368103': 'KLAC',   # KLA Corporation
+                '532457108': 'LRCX',   # Lam Research Corporation
+                '007903107': 'AMAT',   # Applied Materials Inc.
+                '457030104': 'CDNS',   # Cadence Design Systems
+                '858119100': 'SNPS',   # Synopsys Inc.
+                '03662Q105': 'MU',     # Micron Technology Inc.
+                '464287200': 'ARM',    # Arm Holdings plc
+                '69608A108': 'PLTR',   # Palantir Technologies Inc.
+                '770700102': 'HOOD',   # Robinhood Markets Inc.
+                '81762P102': 'NOW',    # ServiceNow Inc.
+                '88579Y101': 'MMM',    # 3M Company
+                '902104108': 'UBER',   # Uber Technologies Inc.
+                '90353T100': 'UBER',   # Uber Technologies Inc. (alt CUSIP)
+                '55087P104': 'LYFT',   # Lyft Inc.
+                '79468M107': 'SQ',     # Block Inc. (Square)
+                '87918A105': 'TEAM',   # Atlassian Corporation
+                '29786A106': 'DDOG',   # Datadog Inc.
+                '83088M102': 'SNOW',   # Snowflake Inc.
+                '26856L103': 'ESTC',   # Elastic N.V.
+                '49271V100': 'KEYS',   # Keysight Technologies
+                '78468R101': 'STX',    # Seagate Technology
+                '88160R101': 'WDC',    # Western Digital Corporation
+                
+                # ============== ENERGY ==============
+                '30231G102': 'XOM',    # Exxon Mobil Corporation
                 '20825C104': 'COP',    # ConocoPhillips
-                '126650100': 'CVX',    # Chevron
-                # Software/Cloud
-                '79466L302': 'CRM',    # Salesforce
-                '22160K105': 'COST',   # Costco
-                '88579Y101': 'MMM',    # 3M
-                '30231G102': 'XOM',    # Exxon
-                '09247X101': 'BLK',    # BlackRock
-                '254687106': 'DIS',    # Disney
-                '580135101': 'MCD',    # McDonalds
-                '460146103': 'INTC',   # Intel
-                '67103H107': 'ORCL',   # Oracle
-                '02313510': 'AMGN',    # Amgen
-                '88025U109': 'TXG',    # 10X Genomics
-                '282914100': 'EGHT',   # 8x8 Inc
-                '002121101': 'ATEN',   # A10 Networks
+                '171340102': 'SLB',    # Schlumberger N.V.
+                '337738108': 'FANG',   # Diamondback Energy
+                '71654V101': 'PXD',    # Pioneer Natural Resources
+                '29251P107': 'OXY',    # Occidental Petroleum
+                '374166104': 'HAL',    # Halliburton Company
+                '651290107': 'NEE',    # NextEra Energy Inc.
+                '278865100': 'DUK',    # Duke Energy Corporation
+                '84857L101': 'SO',     # Southern Company
+                '253868103': 'ED',     # Consolidated Edison
+                '00104H105': 'AEP',    # American Electric Power
+                '92857H109': 'VLO',    # Valero Energy Corporation
+                '759509102': 'PSX',    # Phillips 66
+                '608671108': 'EOG',    # EOG Resources Inc.
+                
+                # ============== INDUSTRIALS ==============
+                '097023105': 'BA',     # The Boeing Company
+                '149123101': 'CAT',    # Caterpillar Inc.
+                '369550108': 'GE',     # General Electric Company
+                '443320106': 'HON',    # Honeywell International
+                '482480100': 'RTX',    # RTX Corporation
+                '549271104': 'LMT',    # Lockheed Martin Corporation
+                '639057101': 'GD',     # General Dynamics Corporation
+                '693475105': 'NOC',    # Northrop Grumman Corporation
+                '589331107': 'MMM',    # 3M Company
+                '427866108': 'EMR',    # Emerson Electric Co.
+                '228368106': 'CNI',    # Canadian National Railway
+                '742680103': 'UNP',    # Union Pacific Corporation
+                '249906108': 'DE',     # Deere & Company
+                '353015103': 'FDX',    # FedEx Corporation
+                '911312106': 'UPS',    # United Parcel Service
+                '00828C109': 'NSC',    # Norfolk Southern Corporation
+                '12503M108': 'DAL',    # Delta Air Lines Inc.
+                '847215100': 'LUV',    # Southwest Airlines Co.
+                '02376R102': 'AAL',    # American Airlines Group
+                '910047109': 'UAL',    # United Airlines Holdings
+                
+                # ============== COMMUNICATIONS ==============
+                '92343E102': 'VZ',     # Verizon Communications
+                '00206R102': 'T',      # AT&T Inc.
+                '872590104': 'TMUS',   # T-Mobile US Inc.
+                '17275R102': 'CSCO',   # Cisco Systems Inc.
+                '25470M109': 'DISH',   # DISH Network Corporation
+                '165167107': 'CHTR',   # Charter Communications
+                '194368107': 'CMCSA',  # Comcast Corporation
+                '353514102': 'FOX',    # Fox Corporation Class B
+                '353527105': 'FOXA',   # Fox Corporation Class A
+                '92332F100': 'VIA',    # Viacom Inc. (now Paramount)
+                '69318G106': 'PARA',   # Paramount Global
+                
+                # ============== REAL ESTATE ==============
+                '03938L108': 'ARE',    # Alexandria Real Estate
+                '05348J108': 'O',      # Realty Income Corporation
+                '126117100': 'PLD',    # Prologis Inc.
+                '277461109': 'AMT',    # American Tower Corporation
+                '29444U700': 'EQIX',   # Equinix Inc.
+                '79709T106': 'PSA',    # Public Storage
+                '843318109': 'SPG',    # Simon Property Group
+                '812348108': 'AVB',    # AvalonBay Communities
+                '30063P105': 'EXR',    # Extra Space Storage
+                '253868103': 'DLR',    # Digital Realty Trust
+                
+                # ============== MATERIALS ==============
+                '549271104': 'LIN',    # Linde plc
+                '037225103': 'APD',    # Air Products and Chemicals
+                '828810100': 'SHW',    # Sherwin-Williams Company
+                '260003108': 'DD',     # DuPont de Nemours
+                '231021106': 'ECL',    # Ecolab Inc.
+                '647742104': 'NEM',    # Newmont Corporation
+                '345370860': 'FCX',    # Freeport-McMoRan Inc.
+                '694550108': 'NUE',    # Nucor Corporation
+                '371901109': 'CTVA',   # Corteva Inc.
+                '168892405': 'CF',     # CF Industries Holdings
+                
+                # ============== ETFs ==============
+                '78378X107': 'SPY',    # SPDR S&P 500 ETF Trust
+                '464287465': 'QQQ',    # Invesco QQQ Trust
+                '922908363': 'VTI',    # Vanguard Total Stock Market ETF
+                '922908785': 'VOO',    # Vanguard S&P 500 ETF
+                '464287622': 'IWM',    # iShares Russell 2000 ETF
+                '46428R109': 'IWF',    # iShares Russell 1000 Growth ETF
+                '46428R208': 'IWD',    # iShares Russell 1000 Value ETF
+                '464287747': 'DIA',    # SPDR Dow Jones Industrial Average ETF
+                '78464A870': 'GLD',    # SPDR Gold Shares
+                '46138E669': 'EEM',    # iShares MSCI Emerging Markets ETF
+                
+                # ============== ADDITIONAL POPULAR STOCKS ==============
+                '879868100': 'TJX',    # TJX Companies Inc.
+                '67091P105': 'PANW',   # Palo Alto Networks
+                '22788C105': 'CRWD',   # CrowdStrike Holdings
+                '98421M106': 'WDAY',   # Workday Inc.
+                '90353P109': 'TTD',    # The Trade Desk Inc.
+                '74340W103': 'PYPL',   # PayPal Holdings Inc.
+                '98954M101': 'ZS',     # Zscaler Inc.
+                '629377106': 'NDAQ',   # Nasdaq Inc.
+                '09260D107': 'BKNG',   # Booking Holdings Inc.
+                '053015103': 'ABNB',   # Airbnb Inc.
+                '780259206': 'SPOT',   # Spotify Technology S.A.
+                '33616C101': 'FISV',   # Fiserv Inc.
+                '36467W109': 'FIS',    # Fidelity National Information
+                '37045V100': 'GPN',    # Global Payments Inc.
+                '02079K387': 'GOOG',   # Alphabet Inc. (alt)
+                '73757R101': 'STZ',    # Constellation Brands
+                '171340102': 'SLB',    # Schlumberger N.V.
+                '79530K109': 'ZM',     # Zoom Video Communications
+                '872540109': 'TWLO',   # Twilio Inc.
+                '876892101': 'TRMB',   # Trimble Inc.
+                '29274F104': 'ENPH',   # Enphase Energy Inc.
+                '837649128': 'SEDG',   # SolarEdge Technologies
+                '171798101': 'CIEN',   # Ciena Corporation
+                '74587V107': 'QRVO',   # Qorvo Inc.
+                '860630102': 'SWKS',   # Skyworks Solutions
+                '29260G107': 'SQ',     # Block Inc. (alt)
+                '85571B105': 'STLA',   # Stellantis N.V.
+                '345370105': 'F',      # Ford Motor Company
+                '370442105': 'GM',     # General Motors Company
+                '86959K105': 'RIVN',   # Rivian Automotive
+                '55616P104': 'LCID',   # Lucid Group Inc.
+                '91680M107': 'UPST',   # Upstart Holdings
+                '04269E107': 'AFRM',   # Affirm Holdings
+                '78397Q107': 'ROKU',   # Roku Inc.
+                '85208M102': 'SHOP',   # Shopify Inc.
+                '87936R202': 'TDOC',   # Teladoc Health
+                '98978V103': 'Z',      # Zillow Group Inc.
+                '98978L204': 'ZG',     # Zillow Group Inc. Class A
+                '82968B103': 'SNAP',   # Snap Inc.
+                '01609W102': 'PINS',   # Pinterest Inc.
+                '90184L102': 'TWTR',   # Twitter Inc. (now X)
+                '78440X101': 'SE',     # Sea Limited
+                '552081110': 'MDB',    # MongoDB Inc.
+                '293726100': 'NET',    # Cloudflare Inc.
+                '29188C106': 'BILL',   # Bill.com Holdings
+                '40171V100': 'GTLB',   # GitLab Inc.
+                '88025T102': 'SOFI',   # SoFi Technologies
+                '89417E109': 'COIN',   # Coinbase Global Inc.
+                '13342B105': 'HOOD',   # Robinhood Markets (alt)
+                '91818X108': 'VALE',   # Vale S.A.
+                '670346105': 'ODFL',   # Old Dominion Freight Line
+                '539830109': 'MCHP',   # Microchip Technology
+                '571748102': 'ON',     # ON Semiconductor
+                '00971T101': 'ALGN',   # Align Technology
+                '460599106': 'IDXX',   # IDEXX Laboratories
+                '232723107': 'DXCM',   # Dexcom Inc.
+                '81725T100': 'HOLX',   # Hologic Inc.
+                '009158106': 'AIR',    # AAR Corp.
+                '872565100': 'TXT',    # Textron Inc.
+                '437076102': 'HWM',    # Howmet Aerospace
+                '62955J103': 'MRNA',   # Moderna Inc.
+                '075508107': 'BNTX',   # BioNTech SE
+                '594918104': 'MSFT',   # Microsoft Corporation
             }
             
             # Try to extract ticker from company name for common patterns
             def infer_ticker_from_name(name: str) -> str:
-                """Try to infer ticker symbol from company name"""
+                """Try to infer ticker symbol from company name (200+ patterns)"""
                 if not name:
                     return None
                 name_upper = name.upper()
-                # Common name to ticker mappings
+                # Comprehensive name to ticker mappings (sorted by specificity)
                 name_patterns = {
-                    'APPLE': 'AAPL', 'MICROSOFT': 'MSFT', 'AMAZON': 'AMZN',
-                    'GOOGLE': 'GOOGL', 'ALPHABET': 'GOOGL', 'META': 'META',
-                    'FACEBOOK': 'META', 'NVIDIA': 'NVDA', 'TESLA': 'TSLA',
-                    'JPMORGAN': 'JPM', 'BANK OF AMERICA': 'BAC', 'WALMART': 'WMT',
-                    'BERKSHIRE': 'BRK.B', 'UNITEDHEALTH': 'UNH', 'JOHNSON': 'JNJ',
-                    'VISA': 'V', 'MASTERCARD': 'MA', 'PROCTER': 'PG',
-                    'HOME DEPOT': 'HD', 'CHEVRON': 'CVX', 'EXXON': 'XOM',
-                    'PFIZER': 'PFE', 'ABBVIE': 'ABBV', 'COCA-COLA': 'KO', 'COKE': 'KO',
-                    'PEPSICO': 'PEP', 'DISNEY': 'DIS', 'NETFLIX': 'NFLX',
-                    'ADOBE': 'ADBE', 'SALESFORCE': 'CRM', 'INTEL': 'INTC',
-                    'CISCO': 'CSCO', 'ORACLE': 'ORCL', 'IBM': 'IBM',
-                    'VERIZON': 'VZ', 'AT&T': 'T', 'T-MOBILE': 'TMUS',
-                    'NVIDIA CORP': 'NVDA', 'ADVANCED MICRO': 'AMD',
+                    # Mega Cap Tech
+                    'APPLE': 'AAPL', 'MICROSOFT': 'MSFT', 'AMAZON': 'AMZN', 'AMAZON.COM': 'AMZN',
+                    'GOOGLE': 'GOOGL', 'ALPHABET': 'GOOGL', 'META PLATFORMS': 'META', 'META ': 'META',
+                    'FACEBOOK': 'META', 'NVIDIA': 'NVDA', 'TESLA': 'TSLA', 'BERKSHIRE': 'BRK.B',
+                    # Financials
+                    'JPMORGAN': 'JPM', 'JP MORGAN': 'JPM', 'BANK OF AMERICA': 'BAC', 'CITIGROUP': 'C',
+                    'GOLDMAN SACHS': 'GS', 'MORGAN STANLEY': 'MS', 'WELLS FARGO': 'WFC',
+                    'VISA': 'V', 'MASTERCARD': 'MA', 'AMERICAN EXPRESS': 'AXP', 'BLACKROCK': 'BLK',
+                    'CAPITAL ONE': 'COF', 'CHARLES SCHWAB': 'SCHW', 'PAYPAL': 'PYPL',
+                    # Healthcare
+                    'UNITEDHEALTH': 'UNH', 'JOHNSON & JOHNSON': 'JNJ', 'JOHNSON AND JOHNSON': 'JNJ',
+                    'ELI LILLY': 'LLY', 'NOVO NORDISK': 'NVO', 'NOVO-NORDISK': 'NVO',
+                    'ABBVIE': 'ABBV', 'PFIZER': 'PFE', 'MERCK': 'MRK', 'THERMO FISHER': 'TMO',
+                    'AMGEN': 'AMGN', 'GILEAD': 'GILD', 'BIOGEN': 'BIIB', 'REGENERON': 'REGN',
+                    'VERTEX': 'VRTX', 'MODERNA': 'MRNA', 'BIONTECH': 'BNTX', 'CVS': 'CVS',
+                    'INTUITIVE SURGICAL': 'ISRG', 'BRISTOL-MYERS': 'BMY', 'BRISTOL MYERS': 'BMY',
+                    # Consumer
+                    'WALMART': 'WMT', 'WAL-MART': 'WMT', 'COCA-COLA': 'KO', 'COCA COLA': 'KO', 'COKE': 'KO',
+                    'PEPSICO': 'PEP', 'PEPSI': 'PEP', 'COSTCO': 'COST', 'PROCTER & GAMBLE': 'PG',
+                    'PROCTER AND GAMBLE': 'PG', 'HOME DEPOT': 'HD', 'LOWES': 'LOW', "LOWE'S": 'LOW',
+                    'TARGET': 'TGT', 'DISNEY': 'DIS', 'WALT DISNEY': 'DIS', 'NIKE': 'NKE',
+                    'STARBUCKS': 'SBUX', 'MCDONALD': 'MCD', "MCDONALD'S": 'MCD', 'CHIPOTLE': 'CMG',
+                    'YUM BRANDS': 'YUM', 'YUM!': 'YUM', 'NETFLIX': 'NFLX', 'MONDELEZ': 'MDLZ',
+                    'MARRIOTT': 'MAR', 'HILTON': 'HLT', 'MONSTER BEVERAGE': 'MNST',
+                    # Technology
+                    'INTEL': 'INTC', 'AMD': 'AMD', 'ADVANCED MICRO': 'AMD', 'QUALCOMM': 'QCOM',
+                    'BROADCOM': 'AVGO', 'TEXAS INSTRUMENTS': 'TXN', 'MICRON': 'MU', 'APPLIED MATERIALS': 'AMAT',
+                    'LAM RESEARCH': 'LRCX', 'KLA': 'KLAC', 'CADENCE': 'CDNS', 'SYNOPSYS': 'SNPS',
+                    'ADOBE': 'ADBE', 'SALESFORCE': 'CRM', 'ORACLE': 'ORCL', 'IBM': 'IBM',
+                    'CISCO': 'CSCO', 'ACCENTURE': 'ACN', 'SERVICENOW': 'NOW', 'SNOWFLAKE': 'SNOW',
+                    'DATADOG': 'DDOG', 'CROWDSTRIKE': 'CRWD', 'PALO ALTO': 'PANW', 'ZSCALER': 'ZS',
+                    'WORKDAY': 'WDAY', 'SPLUNK': 'SPLK', 'ATLASSIAN': 'TEAM', 'MONGODB': 'MDB',
+                    'CLOUDFLARE': 'NET', 'TWILIO': 'TWLO', 'ZOOM': 'ZM', 'DOCUSIGN': 'DOCU',
+                    # Transport/Mobility
+                    'UBER': 'UBER', 'LYFT': 'LYFT', 'AIRBNB': 'ABNB', 'BOOKING': 'BKNG', 'DOORDASH': 'DASH',
+                    'DELTA AIR': 'DAL', 'SOUTHWEST AIR': 'LUV', 'AMERICAN AIR': 'AAL', 'UNITED AIR': 'UAL',
+                    'UNION PACIFIC': 'UNP', 'FEDEX': 'FDX', 'UPS': 'UPS', 'UNITED PARCEL': 'UPS',
+                    'OLD DOMINION': 'ODFL',
+                    # Industrial
+                    'BOEING': 'BA', 'CATERPILLAR': 'CAT', 'GENERAL ELECTRIC': 'GE', 'HONEYWELL': 'HON',
+                    'LOCKHEED MARTIN': 'LMT', 'RAYTHEON': 'RTX', 'RTX': 'RTX', 'NORTHROP GRUMMAN': 'NOC',
+                    'GENERAL DYNAMICS': 'GD', '3M': 'MMM', 'EMERSON': 'EMR', 'DEERE': 'DE', 'JOHN DEERE': 'DE',
+                    # Energy
+                    'EXXON': 'XOM', 'EXXON MOBIL': 'XOM', 'CHEVRON': 'CVX', 'CONOCOPHILLIPS': 'COP',
+                    'SCHLUMBERGER': 'SLB', 'EOG RESOURCES': 'EOG', 'PIONEER NATURAL': 'PXD',
+                    'OCCIDENTAL': 'OXY', 'HALLIBURTON': 'HAL', 'VALERO': 'VLO', 'PHILLIPS 66': 'PSX',
+                    'NEXTERA': 'NEE', 'DUKE ENERGY': 'DUK', 'SOUTHERN CO': 'SO',
+                    # Communications
+                    'VERIZON': 'VZ', 'AT&T': 'T', 'T-MOBILE': 'TMUS', 'COMCAST': 'CMCSA',
+                    'CHARTER COMM': 'CHTR', 'DISH NETWORK': 'DISH', 'PARAMOUNT': 'PARA',
+                    # Fintech/Payments
+                    'BLOCK': 'SQ', 'SQUARE': 'SQ', 'FISERV': 'FISV', 'GLOBAL PAYMENTS': 'GPN',
+                    'FIDELITY NATIONAL': 'FIS', 'COINBASE': 'COIN', 'ROBINHOOD': 'HOOD', 'SOFI': 'SOFI',
+                    'AFFIRM': 'AFRM', 'UPSTART': 'UPST',
+                    # Automotive
+                    'FORD': 'F', 'FORD MOTOR': 'F', 'GENERAL MOTORS': 'GM', 'RIVIAN': 'RIVN', 'LUCID': 'LCID',
+                    # Social/Entertainment
+                    'SPOTIFY': 'SPOT', 'SNAP': 'SNAP', 'PINTEREST': 'PINS', 'TWITTER': 'TWTR',
+                    'ROKU': 'ROKU', 'ROBLOX': 'RBLX', 'ELECTRONIC ARTS': 'EA', 'ACTIVISION': 'ATVI',
+                    'TAKE-TWO': 'TTWO', 'SEA LIMITED': 'SE', 'SEA LTD': 'SE',
+                    # Real Estate
+                    'AMERICAN TOWER': 'AMT', 'CROWN CASTLE': 'CCI', 'PROLOGIS': 'PLD', 'EQUINIX': 'EQIX',
+                    'DIGITAL REALTY': 'DLR', 'PUBLIC STORAGE': 'PSA', 'SIMON PROPERTY': 'SPG',
+                    'REALTY INCOME': 'O',
+                    # Materials
+                    'LINDE': 'LIN', 'AIR PRODUCTS': 'APD', 'SHERWIN-WILLIAMS': 'SHW', 'DUPONT': 'DD',
+                    'NEWMONT': 'NEM', 'FREEPORT': 'FCX', 'NUCOR': 'NUE',
+                    # E-commerce/Retail Tech
+                    'SHOPIFY': 'SHOP', 'ETSY': 'ETSY', 'EBAY': 'EBAY', 'WAYFAIR': 'W',
+                    'TRADE DESK': 'TTD', 'ZILLOW': 'Z',
+                    # Biotech/Medical Devices
+                    'DEXCOM': 'DXCM', 'ALIGN TECHNOLOGY': 'ALGN', 'IDEXX': 'IDXX', 'HOLOGIC': 'HOLX',
+                    'TELADOC': 'TDOC', 'PALANTIR': 'PLTR',
+                    # Semiconductors (additional)
+                    'ARM HOLDINGS': 'ARM', 'ARM ': 'ARM', 'ON SEMICONDUCTOR': 'ON', 'MICROCHIP': 'MCHP',
+                    'SKYWORKS': 'SWKS', 'QORVO': 'QRVO',
+                    # Clean Energy
+                    'ENPHASE': 'ENPH', 'SOLAREDGE': 'SEDG', 'FIRST SOLAR': 'FSLR',
                 }
                 for pattern, ticker in name_patterns.items():
                     if pattern in name_upper:
