@@ -117,18 +117,30 @@ async def run_backtest(
         # Serialize dates to strings for JSON storage
         config_dict = serialize_dates(config_dict)
         
-        # Try multiple locations where institutions might be stored:
-        # 1. In stock_selection
-        if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
-            selected_institutions = config_dict['stock_selection'].get('selected_institutions', [])
-        # 2. In sub_universe_filters (frontend stores here!)
-        elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
-            selected_institutions = config_dict['sub_universe_filters'].get('selected_institutions', [])
-        # 3. Directly in config
-        elif 'selected_institutions' in config_dict:
-            selected_institutions = config_dict['selected_institutions']
-        else:
+        # Try multiple locations where institutions might be stored
+        # Check ALL locations and use the first non-empty one
+        selected_institutions = []
+        
+        # 1. Check sub_universe_filters FIRST (this is where frontend stores it!)
+        if not selected_institutions:
+            sub_filters = config_dict.get('sub_universe_filters', {})
+            if isinstance(sub_filters, dict):
+                selected_institutions = sub_filters.get('selected_institutions', [])
+        
+        # 2. Check stock_selection (alternative location)
+        if not selected_institutions:
+            stock_sel = config_dict.get('stock_selection', {})
+            if isinstance(stock_sel, dict):
+                selected_institutions = stock_sel.get('selected_institutions', [])
+        
+        # 3. Check directly in config
+        if not selected_institutions:
+            selected_institutions = config_dict.get('selected_institutions', [])
+        
+        # Ensure it's always a list of strings
+        if not isinstance(selected_institutions, list):
             selected_institutions = []
+        selected_institutions = [str(s).strip() for s in selected_institutions if s]
         
         print(f"📊 Backtest {backtest_id} - Received config keys: {list(config_dict.keys())}")
         print(f"📊 Extracted {len(selected_institutions)} institutions from config: {selected_institutions}")
