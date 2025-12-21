@@ -458,22 +458,6 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <button
-          onClick={prevStep}
-          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-        >
-          Previous
-        </button>
-        <button
-          onClick={nextStep}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          Next: Entry Signals
-        </button>
-      </div>
-
       {/* Help Panel */}
       <HelpPanel
         isOpen={isHelpOpen}

@@ -254,22 +254,6 @@ const Step4_EntryScheduling: React.FC<StepProps> = ({ config, updateConfig, next
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-6 border-t border-gray-200">
-        <button
-          onClick={prevStep}
-          className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
-        >
-          ← Back
-        </button>
-        <button
-          onClick={nextStep}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-        >
-          Continue →
-        </button>
-      </div>
-
       {/* Help Panel */}
       <HelpPanel
         isOpen={isHelpOpen}

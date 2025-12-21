@@ -274,16 +274,6 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-end">
-        <button
-          onClick={nextStep}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          Next: Stock Selection
-        </button>
-      </div>
-
       {/* Help Panel */}
       <HelpPanel
         isOpen={isHelpOpen}

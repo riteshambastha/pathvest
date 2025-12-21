@@ -242,7 +242,8 @@ const StrategyWizard: React.FC = () => {
     },
   });
 
-  // Load config from localStorage on mount
+  // Load config ONLY when explicitly reloading a strategy (e.g., from "My Strategies")
+  // Otherwise, always start with a fresh default config
   useEffect(() => {
     const reloadedStrategy = localStorage.getItem('reloadStrategy');
     if (reloadedStrategy) {
@@ -256,17 +257,11 @@ const StrategyWizard: React.FC = () => {
         console.error('Failed to parse reloaded strategy:', err);
       }
     } else {
-      // Try to load saved config from localStorage
-      const savedConfig = localStorage.getItem('strategyConfig');
-      if (savedConfig) {
-        try {
-          const parsedConfig = JSON.parse(savedConfig);
-          setConfig(parsedConfig);
-          console.log('✅ Strategy config loaded from localStorage');
-        } catch (err) {
-          console.error('Failed to parse saved config:', err);
-        }
-      }
+      // Always start fresh - clear any saved config
+      localStorage.removeItem('strategyConfig');
+      console.log('🔄 Starting with fresh strategy config');
+      // Reset to step 1
+      setCurrentStep(1);
     }
   }, []);
 
@@ -333,9 +328,9 @@ const StrategyWizard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow">
-      {/* Progress Steps */}
-      <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
+    <div className="bg-white rounded-lg shadow flex flex-col h-[calc(100vh-120px)]">
+      {/* Progress Steps - Fixed at top */}
+      <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex-shrink-0">
         <nav aria-label="Progress">
           <ol className="flex items-center justify-between">
             {steps.map((step, stepIdx) => (
@@ -381,8 +376,43 @@ const StrategyWizard: React.FC = () => {
         </nav>
       </div>
 
-      {/* Step Content */}
-      <div className="px-4 py-5 sm:p-6">{renderStep()}</div>
+      {/* Step Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-4 py-5 sm:p-6">
+        {renderStep()}
+      </div>
+
+      {/* Navigation - Sticky at bottom */}
+      <div className="flex-shrink-0 px-4 py-4 sm:px-6 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+        <div>
+          {currentStep > 1 && (
+            <button
+              onClick={prevStep}
+              className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Previous
+            </button>
+          )}
+        </div>
+        <div className="text-sm text-gray-500">
+          Step {currentStep} of {steps.length}
+        </div>
+        <div>
+          {currentStep < 8 && (
+            <button
+              onClick={nextStep}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
+            >
+              Next
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

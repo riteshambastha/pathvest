@@ -554,154 +554,64 @@ const BacktestResultsPage: React.FC = () => {
             )}
           </div>
 
-          {/* Executive Summary - Simple Overview */}
-          <div className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 shadow-lg">
-            <div className="flex items-center mb-4">
-              <svg className="w-8 h-8 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h2 className="text-2xl font-bold text-gray-900">📊 Executive Summary</h2>
-            </div>
-            
-            <div className="space-y-4">
-              {/* Overall Performance */}
-              <div className="bg-white rounded-lg p-4 border-l-4" style={{ borderColor: results.summary.total_return > 0 ? '#10b981' : '#ef4444' }}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {results.summary.total_return > 0 ? '✅ Strategy Made Money' : '❌ Strategy Lost Money'}
-                    </h3>
-                    <p className="text-gray-700 text-base">
-                      {results.summary.total_return > 0 ? (
-                        <>Your strategy would have <span className="font-bold text-green-600">gained {(results.summary.total_return * 100).toFixed(1)}%</span> during the test period. 
-                        {results.summary.total_return > 0.20 ? ' This is excellent!' : results.summary.total_return > 0.10 ? ' This is good.' : ' This is modest.'}</>
-                      ) : (
-                        <>Your strategy would have <span className="font-bold text-red-600">lost {Math.abs(results.summary.total_return * 100).toFixed(1)}%</span> during the test period. 
-                        Consider adjusting your strategy.</>
-                      )}
-                    </p>
+          {/* Executive Summary - Compact Overview */}
+          <div className="mb-4 bg-gradient-to-r from-slate-50 to-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+            {/* Single Row: Performance + Risk + Comparison */}
+            <div className="flex items-center gap-6 flex-wrap">
+              {/* Performance Badge */}
+              <div className={`flex items-center gap-3 px-4 py-2 rounded-lg ${results.summary.total_return > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                <span className="text-2xl">{results.summary.total_return > 0 ? '✅' : '❌'}</span>
+                <div>
+                  <div className={`text-2xl font-bold ${results.summary.total_return > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {results.summary.total_return > 0 ? '+' : ''}{(results.summary.total_return * 100).toFixed(1)}%
                   </div>
-                  <div className="ml-4 text-right">
-                    <div className={`text-4xl font-bold ${results.summary.total_return > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {results.summary.total_return > 0 ? '+' : ''}{(results.summary.total_return * 100).toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">Total Return</div>
-                  </div>
+                  <div className="text-xs text-gray-600">Total Return</div>
                 </div>
               </div>
 
-              {/* Risk Assessment */}
-              <div className="bg-white rounded-lg p-4 border-l-4 border-yellow-500">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">⚠️ Risk Level</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Risk-Adjusted Performance (Sharpe Ratio)</p>
-                    <div className="flex items-center">
-                      <span className={`text-2xl font-bold ${results.summary.sharpe_ratio > 1 ? 'text-green-600' : results.summary.sharpe_ratio > 0.5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {results.summary.sharpe_ratio.toFixed(2)}
-                      </span>
-                      <span className="ml-2 text-sm text-gray-600">
-                        {results.summary.sharpe_ratio > 1.5 ? '(Excellent)' : results.summary.sharpe_ratio > 1 ? '(Good)' : results.summary.sharpe_ratio > 0.5 ? '(Fair)' : '(Poor)'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Higher is better. Above 1.0 means good risk-adjusted returns.
-                    </p>
+              {/* Sharpe Ratio */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border">
+                <div>
+                  <div className={`text-xl font-bold ${results.summary.sharpe_ratio > 1 ? 'text-green-600' : results.summary.sharpe_ratio > 0.5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {results.summary.sharpe_ratio.toFixed(2)}
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Worst Loss Period (Max Drawdown)</p>
-                    <div className="flex items-center">
-                      <span className="text-2xl font-bold text-red-600">
-                        {(Math.abs(results.summary.max_drawdown) * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      This is the biggest drop from peak. Lower is better.
-                    </p>
-                  </div>
+                  <div className="text-xs text-gray-500">Sharpe</div>
                 </div>
               </div>
 
-              {/* Key Insights */}
-              <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">💡 Key Insights</h3>
-                <ul className="space-y-2">
-                  {results.summary.total_return > 0.15 && (
-                    <li className="flex items-start">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-sm text-gray-700">Strong positive returns - strategy shows promise</span>
-                    </li>
-                  )}
-                  {results.summary.sharpe_ratio > 1 && (
-                    <li className="flex items-start">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-sm text-gray-700">Good risk-adjusted returns - reward justifies the risk</span>
-                    </li>
-                  )}
-                  {Math.abs(results.summary.max_drawdown) < 0.15 && (
-                    <li className="flex items-start">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-sm text-gray-700">Controlled drawdowns - relatively stable strategy</span>
-                    </li>
-                  )}
-                  {results.summary.total_return < 0 && (
-                    <li className="flex items-start">
-                      <span className="text-red-500 mr-2">✗</span>
-                      <span className="text-sm text-gray-700">Negative returns - consider refining entry/exit rules</span>
-                    </li>
-                  )}
-                  {results.summary.sharpe_ratio < 0.5 && (
-                    <li className="flex items-start">
-                      <span className="text-yellow-500 mr-2">!</span>
-                      <span className="text-sm text-gray-700">Low Sharpe ratio - too much risk for the returns</span>
-                    </li>
-                  )}
-                  {Math.abs(results.summary.max_drawdown) > 0.25 && (
-                    <li className="flex items-start">
-                      <span className="text-red-500 mr-2">✗</span>
-                      <span className="text-sm text-gray-700">Large drawdown - consider adding stop-loss rules</span>
-                    </li>
-                  )}
-                  {(results as any).selected_institutions && (results as any).selected_institutions.length > 0 && (
-                    <li className="flex items-start">
-                      <span className="text-blue-500 mr-2">ℹ</span>
-                      <span className="text-sm text-gray-700">
-                        Following {(results as any).selected_institutions.length} institution(s): {(results as any).selected_institutions.slice(0, 2).join(', ')}
-                        {(results as any).selected_institutions.length > 2 && '...'}
-                      </span>
-                    </li>
-                  )}
-                  <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">ℹ</span>
-                    <span className="text-sm text-gray-700">
-                      Analyzed {(results as any).stocks_analyzed?.length || 0} stocks based on institutional signals
-                    </span>
-                  </li>
-                </ul>
+              {/* Max Drawdown */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border">
+                <div>
+                  <div className="text-xl font-bold text-red-600">-{(Math.abs(results.summary.max_drawdown) * 100).toFixed(1)}%</div>
+                  <div className="text-xs text-gray-500">Max DD</div>
+                </div>
               </div>
 
-              {/* Simple Comparison */}
-              <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">📈 How Does This Compare?</h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="p-3 bg-gray-50 rounded">
-                    <div className="text-lg font-bold text-gray-900">{(results.summary.total_return * 100).toFixed(1)}%</div>
-                    <div className="text-xs text-gray-600 mt-1">Your Strategy</div>
+              {/* CAGR */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border">
+                <div>
+                  <div className={`text-xl font-bold ${results.summary.cagr > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                    {(results.summary.cagr * 100).toFixed(1)}%
                   </div>
-                  <div className="p-3 bg-gray-50 rounded">
-                    <div className="text-lg font-bold text-blue-600">~{((results.summary.total_return * 0.7) * 100).toFixed(1)}%</div>
-                    <div className="text-xs text-gray-600 mt-1">S&P 500 (est.)</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded">
-                    <div className={`text-lg font-bold ${results.summary.total_return > (results.summary.total_return * 0.7) ? 'text-green-600' : 'text-red-600'}`}>
-                      {results.summary.total_return > (results.summary.total_return * 0.7) ? '✓ Better' : '✗ Worse'}
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">vs. Market</div>
-                  </div>
+                  <div className="text-xs text-gray-500">CAGR</div>
                 </div>
-                <p className="text-xs text-gray-500 mt-3 text-center">
-                  Your strategy {results.summary.total_return > (results.summary.total_return * 0.7) ? 'outperformed' : 'underperformed'} the estimated market return
-                </p>
+              </div>
+
+              {/* Trades */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border">
+                <div>
+                  <div className="text-xl font-bold text-gray-800">{results.trades?.length || 0}</div>
+                  <div className="text-xs text-gray-500">Trades</div>
+                </div>
+              </div>
+
+              {/* Key Insight */}
+              <div className="flex-1 min-w-[200px] px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-800">
+                💡 {results.summary.total_return > 0.15 ? 'Strong performance' : 
+                    results.summary.sharpe_ratio > 1 ? 'Good risk-adjusted returns' : 
+                    Math.abs(results.summary.max_drawdown) < 0.15 ? 'Stable strategy' : 
+                    'Review strategy parameters'}
+                {(results as any).stocks_analyzed?.length > 0 && ` • ${(results as any).stocks_analyzed.length} stocks analyzed`}
               </div>
             </div>
           </div>
