@@ -58,12 +58,12 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
 
   const handleViewResults = () => {
     if (backtestId) {
-      navigate(`/backtest/${backtestId}`);
+      navigate(`/results/${backtestId}`);
     }
   };
 
   const handleBackToStrategies = () => {
-    navigate('/strategies');
+    navigate('/my-strategies');
   };
 
   return (
