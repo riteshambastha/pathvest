@@ -263,6 +263,30 @@ class TechnicalFilters:
             "rsi_margin": rsi - rsi_threshold
         }
     
+    async def check_technical_confirmation(
+        self,
+        ticker: str,
+        signal_date: date,
+        lookback_days: int = 200
+    ) -> Dict[str, Any]:
+        """
+        Check if a candidate passes technical confirmation (alias for apply_all_filters)
+        
+        Per SRS FR-3.1.C.9.2, a trade is executed if and only if a candidate meets:
+        1. Price Breakout: Close > 10-day High
+        2. Trend Filter: Close > 50-day SMA
+        3. Momentum Filter: RSI(14) > 45
+        
+        Args:
+            ticker: Stock ticker
+            signal_date: Signal date (date)
+            lookback_days: Days to look back for data (default 200)
+        
+        Returns:
+            Dict with confirmation result and individual filter checks
+        """
+        return await self.apply_all_filters(ticker, signal_date)
+    
     async def apply_all_filters(
         self,
         ticker: str,

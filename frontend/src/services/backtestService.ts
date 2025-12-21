@@ -63,6 +63,19 @@ export interface BacktestResponse {
   start_date?: string;
   end_date?: string;
   initial_capital?: number;
+  stocks_analyzed?: string[];
+  sec_filings_fetched?: number;
+  institutional_signals?: {
+    sec_filings_fetched?: number;
+    institutions_tracked?: number;
+    simulation_mode?: string;
+  };
+  selected_institutions?: string[];
+  real_market_data?: {
+    data_source?: string;
+    api_calls?: number;
+    note?: string;
+  };
 }
 
 export interface BacktestStatus {

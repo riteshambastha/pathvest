@@ -534,6 +534,10 @@ class HistoricalBacktestEngine:
         """
         Run the backtest simulation with exit signals
         
+        IMPORTANT: Implements T+1 execution per SRS FR-3.1.D.2
+        - Signal received on day T (e.g., 13F filing date)
+        - Trade executed at Market Open on day T+1
+        
         Args:
             signals: List of trading signals with dates
             historical_prices: Dict of ticker -> price DataFrames
@@ -558,6 +562,7 @@ class HistoricalBacktestEngine:
         print(f"📊 Entry signals: {len(signals)}")
         print(f"🛑 Exit Rules: Stop-Loss={self.stop_loss_pct*100:.0f}% | Take-Profit={self.take_profit_pct*100:.0f}% | Trailing-Stop={self.trailing_stop_pct*100:.0f}%")
         print(f"⚖️ Rebalancing: {self.rebalance_frequency.upper()} | Target Weight: {self.target_weight*100:.0f}% | Drift Threshold: {self.drift_threshold*100:.0f}%")
+        print(f"📅 Execution: T+1 (Market Order at Open)")
         print()
         
         # Convert dates
@@ -569,44 +574,94 @@ class HistoricalBacktestEngine:
         
         # Create a date range for daily portfolio tracking
         date_range = pd.date_range(start=start_dt, end=end_dt, freq='D')
+        date_list = [d for d in date_range if d.weekday() < 5]  # Filter to weekdays only
         
+        # Queue for T+1 execution: signals received today, execute tomorrow
+        pending_signals = []  # [(signal, signal_date)]
         signal_idx = 0
         
         # Process each day
-        for date in date_range:
-            # Check if it's a weekday (markets open)
-            if date.weekday() >= 5:  # Saturday or Sunday
-                continue
+        for day_idx, date in enumerate(date_list):
+            # ========== STEP 1: Execute pending signals from yesterday (T+1) ==========
+            signals_to_execute = []
+            remaining_pending = []
             
-            # Execute any signals for this date
-            while signal_idx < len(signals) and pd.to_datetime(signals[signal_idx]['date']) <= date:
-                signal = signals[signal_idx]
+            for pending_signal, signal_date in pending_signals:
+                # Signal received before today should be executed today
+                if signal_date < date:
+                    signals_to_execute.append(pending_signal)
+                else:
+                    remaining_pending.append((pending_signal, signal_date))
+            
+            pending_signals = remaining_pending
+            
+            # Execute the pending signals using today's Open price (T+1 execution)
+            for signal in signals_to_execute:
                 ticker = signal['ticker']
                 action = signal.get('action', 'BUY')
                 signal_strength = signal.get('signal_strength', 1.0)
                 
-                # Get price for this date
+                # Get OPEN price for T+1 execution (today's open)
                 if ticker in historical_prices:
                     prices_df = historical_prices[ticker]
                     if date in prices_df.index:
-                        price = prices_df.loc[date, 'Close']
+                        # Use Open price for T+1 execution per SRS
+                        if 'Open' in prices_df.columns:
+                            price = prices_df.loc[date, 'Open']
+                        else:
+                            # Fallback to Close if Open not available
+                            price = prices_df.loc[date, 'Close']
                         
-                        if action == 'BUY':
+                        if action == 'BUY' and price > 0:
                             # Calculate shares to buy
                             position_value = self.calculate_position_size(ticker, signal_strength)
-                            if price > 0:
-                                shares = int(position_value / price)
-                                
-                                if shares > 0:
-                                    self.execute_trade(date, ticker, shares, price, 'BUY')
-                            else:
-                                print(f"⚠️ Skipping {ticker}: Price is {price}")
+                            shares = int(position_value / price)
+                            
+                            if shares > 0:
+                                print(f"  📅 T+1 BUY: {ticker} @ Open ${price:.2f} (signal date: {signal['date']})")
+                                self.execute_trade(date, ticker, shares, price, 'BUY')
                         
                         elif action == 'SELL':
-                            # Sell entire position
-                            if ticker in self.positions:
+                            if ticker in self.positions and self.positions[ticker] > 0:
                                 shares = self.positions[ticker]
+                                print(f"  📅 T+1 SELL: {ticker} @ Open ${price:.2f} (signal date: {signal['date']})")
                                 self.execute_trade(date, ticker, shares, price, 'SELL')
+            
+            # ========== STEP 2: Collect new signals for this date (to execute T+1) ==========
+            while signal_idx < len(signals) and pd.to_datetime(signals[signal_idx]['date']) <= date:
+                signal = signals[signal_idx]
+                signal_date = pd.to_datetime(signal['date'])
+                
+                # If signal is for today, queue for T+1 execution
+                if signal_date == date:
+                    pending_signals.append((signal, date))
+                    ticker = signal['ticker']
+                    print(f"  📋 Signal received: {signal.get('action', 'BUY')} {ticker} (will execute T+1)")
+                else:
+                    # Signal is from the past but we haven't processed it yet
+                    # Execute immediately at today's open
+                    ticker = signal['ticker']
+                    action = signal.get('action', 'BUY')
+                    signal_strength = signal.get('signal_strength', 1.0)
+                    
+                    if ticker in historical_prices:
+                        prices_df = historical_prices[ticker]
+                        if date in prices_df.index:
+                            if 'Open' in prices_df.columns:
+                                price = prices_df.loc[date, 'Open']
+                            else:
+                                price = prices_df.loc[date, 'Close']
+                            
+                            if action == 'BUY' and price > 0:
+                                position_value = self.calculate_position_size(ticker, signal_strength)
+                                shares = int(position_value / price)
+                                if shares > 0:
+                                    self.execute_trade(date, ticker, shares, price, 'BUY')
+                            elif action == 'SELL':
+                                # Sell entire position
+                                if ticker in self.positions:
+                                    shares = self.positions[ticker]
+                                    self.execute_trade(date, ticker, shares, price, 'SELL')
                 
                 signal_idx += 1
             

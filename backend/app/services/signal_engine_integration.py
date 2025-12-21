@@ -225,15 +225,26 @@ class SignalEngineIntegration:
                 continue
             
             # Check technical confirmation
-            confirmation = await self.technical_filters.check_technical_confirmation(
-                ticker=ticker,
-                signal_date=signal_date,
-                lookback_days=200
-            )
-            
-            if confirmation and confirmation.get('confirmed', False):
-                candidate['technical_confirmation'] = confirmation
-                confirmed_candidates.append(candidate)
+            try:
+                confirmation = await self.technical_filters.check_technical_confirmation(
+                    ticker=ticker,
+                    signal_date=signal_date,
+                    lookback_days=200
+                )
+                
+                # Check if passes_all is True (all 3 technical conditions met)
+                if confirmation and confirmation.get('passes_all', False):
+                    candidate['technical_confirmation'] = confirmation
+                    confirmed_candidates.append(candidate)
+                    print(f"   ✅ {ticker} passed technical confirmation")
+                else:
+                    reason = confirmation.get('reason', 'Failed one or more checks') if confirmation else 'No data'
+                    print(f"   ⚠️ {ticker} failed technical confirmation: {reason}")
+            except Exception as e:
+                print(f"   ❌ Error checking technical confirmation for {ticker}: {e}")
+                # Still include the candidate but mark as unconfirmed
+                candidate['technical_confirmation'] = {'passes_all': False, 'error': str(e)}
+                confirmed_candidates.append(candidate)  # Include anyway, let user decide
         
         return confirmed_candidates
     
