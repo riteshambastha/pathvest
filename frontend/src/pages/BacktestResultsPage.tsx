@@ -243,69 +243,112 @@ const BacktestResultsPage: React.FC = () => {
     setMinLoadingTimeElapsed(true);
   };
 
-  if (loading && !minLoadingTimeElapsed) {
+  // Determine if we should show progress screen
+  // Show progress ONLY if: backtest is still running (not completed/failed)
+  // AND we don't have complete results data yet
+  const isBacktestComplete = results?.status === 'completed' || results?.status === 'failed';
+  const hasCompleteResults = results && isBacktestComplete && (results.trades || results.summary);
+  const shouldShowProgress = !hasCompleteResults && (loading || (results && !isBacktestComplete));
+  
+  if (shouldShowProgress) {
     const progress = (results as any)?.progress || null;
+    const progressPercent = progress?.percent || 0;
+    const statusMessage = progress?.message || results?.status || 'Starting backtest...';
+    
+    // Determine stage for UI
+    const stage = progressPercent < 20 ? 'initializing' :
+                  progressPercent < 50 ? 'fetching_data' :
+                  progressPercent < 80 ? 'analyzing' :
+                  progressPercent < 100 ? 'finalizing' : 'complete';
+    
+    const stageInfo: Record<string, { icon: string; label: string; color: string }> = {
+      initializing: { icon: '🚀', label: 'Initializing', color: 'from-gray-500 to-gray-600' },
+      fetching_data: { icon: '📊', label: 'Fetching SEC Data', color: 'from-blue-500 to-blue-600' },
+      analyzing: { icon: '🔍', label: 'Analyzing Signals', color: 'from-indigo-500 to-indigo-600' },
+      finalizing: { icon: '📈', label: 'Running Backtest', color: 'from-purple-500 to-purple-600' },
+      complete: { icon: '✅', label: 'Complete', color: 'from-green-500 to-green-600' }
+    };
+    
+    const currentStage = stageInfo[stage];
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="animate-pulse inline-block">
-              <div className="flex items-center justify-center space-x-2">
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
-                <div className="animate-spin rounded-full h-6 w-6 border-4 border-indigo-400 border-t-transparent" style={{animationDirection: 'reverse', animationDuration: '1.5s'}}></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-6">
+        <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl p-8 max-w-xl w-full border border-white/20">
+          
+          {/* Animated Header */}
+          <div className="text-center mb-8">
+            <div className="relative inline-block">
+              {/* Outer ring */}
+              <div className="absolute inset-0 rounded-full border-4 border-blue-200 opacity-30"></div>
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent border-t-blue-600 border-r-indigo-500"></div>
+              {/* Inner icon */}
+              <div className="absolute inset-0 flex items-center justify-center text-3xl">
+                {currentStage.icon}
               </div>
             </div>
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">
-              {progress?.message || 'Processing Backtest...'}
+            
+            <h2 className="mt-6 text-2xl font-bold text-gray-900">
+              {currentStage.label}
             </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Analyzing real institutional data and market prices
+            <p className="mt-2 text-gray-600 text-sm">
+              {statusMessage}
             </p>
           </div>
 
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Progress</span>
-              <span className="text-sm font-medium text-blue-600">{progress?.percent || 0}%</span>
+          {/* Progress Bar with percentage */}
+          <div className="mb-8">
+            <div className="flex justify-between items-end mb-3">
+              <span className="text-sm font-semibold text-gray-700">Progress</span>
+              <span className={`text-2xl font-bold bg-gradient-to-r ${currentStage.color} bg-clip-text text-transparent`}>
+                {progressPercent}%
+              </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div className="relative w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
               <div 
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progress?.percent || 0}%` }}
-              ></div>
+                className={`absolute left-0 top-0 h-4 rounded-full bg-gradient-to-r ${currentStage.color} transition-all duration-700 ease-out`}
+                style={{ width: `${progressPercent}%` }}
+              >
+                {/* Shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+              </div>
+            </div>
+            
+            {/* Stage indicators */}
+            <div className="flex justify-between mt-3 px-1">
+              {['0%', '25%', '50%', '75%', '100%'].map((label, i) => (
+                <div key={label} className="flex flex-col items-center">
+                  <div className={`w-2 h-2 rounded-full ${progressPercent >= i * 25 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                  <span className="text-xs text-gray-500 mt-1">{label}</span>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Current Activity */}
           {progress?.current_stock && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
               <div className="flex items-center">
-                <svg className="animate-bounce h-5 w-5 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-                <span className="text-sm font-semibold text-blue-900">
-                  Currently fetching: <span className="font-mono font-bold">{progress.current_stock}</span>
+                <div className="animate-pulse h-3 w-3 bg-green-500 rounded-full mr-3"></div>
+                <span className="text-sm text-gray-700">
+                  Fetching: <span className="font-mono font-bold text-blue-700">{progress.current_stock}</span>
                 </span>
               </div>
             </div>
           )}
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg">
-              <div className="text-2xl font-bold text-green-700">{progress?.stocks_completed?.length || 0}</div>
-              <div className="text-xs text-green-600 mt-1">Stocks Fetched</div>
+          {/* Stats Cards - Compact */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl border border-green-200">
+              <div className="text-xl font-bold text-green-700">{progress?.stocks_completed?.length || 0}</div>
+              <div className="text-xs text-green-600 font-medium">Stocks</div>
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-indigo-100 rounded-lg">
-              <div className="text-2xl font-bold text-purple-700">{progress?.institutions_analyzed?.length || 0}</div>
-              <div className="text-xs text-purple-600 mt-1">Institutions</div>
+            <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-indigo-100 rounded-xl border border-purple-200">
+              <div className="text-xl font-bold text-purple-700">{progress?.institutions_analyzed?.length || 0}</div>
+              <div className="text-xs text-purple-600 font-medium">Institutions</div>
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-amber-100 rounded-lg">
-              <div className="text-2xl font-bold text-orange-700">{progress?.details?.length || 0}</div>
-              <div className="text-xs text-orange-600 mt-1">Actions</div>
+            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-sky-100 rounded-xl border border-blue-200">
+              <div className="text-xl font-bold text-blue-700">{progress?.details?.length || 0}</div>
+              <div className="text-xs text-blue-600 font-medium">Actions</div>
             </div>
           </div>
 
@@ -366,30 +409,19 @@ const BacktestResultsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Manual Close Button (appears after 3 seconds) */}
-          {canManuallyClose && (
-            <div className="mt-6 text-center">
-              <button
-                onClick={handleManualClose}
-                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-md transition-colors duration-200 flex items-center justify-center mx-auto"
-              >
-                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                View Results Now
-              </button>
-              <p className="mt-2 text-xs text-gray-500">
-                Results are ready. Click to view without waiting.
-              </p>
+          {/* Time Estimate & Status */}
+          <div className="mt-6 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-sm text-slate-600">
+              <div className="animate-pulse h-2 w-2 bg-green-500 rounded-full"></div>
+              <span>Processing backtest...</span>
+              <span className="text-slate-400">|</span>
+              <span>⏱️ Usually takes 1-3 minutes</span>
             </div>
-          )}
-
-          {/* Time Estimate */}
-          <div className="mt-4 text-center text-xs text-gray-500">
-            <p>⏱️ Estimated time: 1-3 minutes for data fetching | Minimum display: 60 seconds</p>
-            <p className="mt-1 text-gray-400">Manual close available after 10 seconds</p>
           </div>
         </div>
+        
+        {/* Bottom decorative wave */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white/10 to-transparent pointer-events-none"></div>
       </div>
     );
   }
