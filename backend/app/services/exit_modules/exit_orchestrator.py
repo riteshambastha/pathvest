@@ -55,18 +55,18 @@ class ExitOrchestrator:
     Users can configure which modules to enable and their priorities.
     """
     
-    def __init__(self, postgres_service = None):
+    def __init__(self, postgres_service=None):
         """
         Initialize Exit Orchestrator
         
         Args:
             postgres_service: PostgreSQL service for data access
         """
-        self.bq_client = bq_client
+        self.postgres_service = postgres_service
         
         # Initialize all modules
-        self.thesis_drift = ThesisDriftModule(bq_client)
-        self.insider_reversal = InsiderReversalModule(bq_client)
+        self.thesis_drift = ThesisDriftModule(postgres_service)
+        self.insider_reversal = InsiderReversalModule(postgres_service)
         self.trailing_stop = TrailingStopModule()
         self.dead_money = DeadMoneyModule()
         

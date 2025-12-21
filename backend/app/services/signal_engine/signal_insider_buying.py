@@ -22,8 +22,46 @@ class InsiderBuyingSignal:
     DEFAULT_INSIDER_INCREASE_PCT = 0.10  # 10%
     
     def __init__(self):
-        """Initialize signal generator"""
-        self.postgres_service = get_postgres_service()
+        """Initialize signal generator with lazy-loaded services"""
+        self._postgres_service = None
+    
+    @property
+    def postgres_service(self):
+        """Lazy-load postgres service"""
+        if self._postgres_service is None:
+            self._postgres_service = get_postgres_service()
+        return self._postgres_service
+    
+    def evaluate(
+        self,
+        institutional_buy_value: float,
+        insider_holdings_increase_pct: float,
+        min_buy_value: float = DEFAULT_LARGE_BUY_THRESHOLD,
+        min_insider_increase: float = DEFAULT_INSIDER_INCREASE_PCT
+    ) -> bool:
+        """
+        Evaluate if Insider Buying signal is triggered (synchronous)
+        
+        Signal B Logic:
+        - Large institutional buy (> $10M default)
+        - Insider holdings increased by > 10%
+        
+        Args:
+            institutional_buy_value: Value of institutional purchases
+            insider_holdings_increase_pct: Percentage increase in insider holdings
+            min_buy_value: Minimum institutional buy value threshold
+            min_insider_increase: Minimum insider increase percentage
+        
+        Returns:
+            True if signal is triggered
+        """
+        # Condition 1: Large institutional buy
+        large_inst_buy = institutional_buy_value >= min_buy_value
+        
+        # Condition 2: Insider holdings increased by > threshold
+        insider_increased = insider_holdings_increase_pct > min_insider_increase
+        
+        return large_inst_buy and insider_increased
     
     async def get_large_institutional_buys(
         self,

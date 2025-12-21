@@ -23,8 +23,54 @@ class HerdingSignal:
     DEFAULT_MIN_FOLLOWERS = 2
     
     def __init__(self):
-        """Initialize signal generator"""
-        self.postgres_service = get_postgres_service()
+        """Initialize signal generator with lazy-loaded services"""
+        self._postgres_service = None
+    
+    @property
+    def postgres_service(self):
+        """Lazy-load postgres service"""
+        if self._postgres_service is None:
+            self._postgres_service = get_postgres_service()
+        return self._postgres_service
+    
+    def evaluate(
+        self,
+        leader_buy_value: float,
+        num_followers: int,
+        follower_total_value: float,
+        min_leader_value: float = DEFAULT_LEADER_BUY_THRESHOLD,
+        min_follower_value: float = DEFAULT_FOLLOWER_BUY_THRESHOLD,
+        min_followers: int = DEFAULT_MIN_FOLLOWERS
+    ) -> bool:
+        """
+        Evaluate if Institutional Herding signal is triggered (synchronous)
+        
+        Signal C Logic:
+        - 1 large leader buy (> $20M default)
+        - 2+ large followers (each > $10M default)
+        
+        Args:
+            leader_buy_value: Value of leader's purchase
+            num_followers: Number of following institutions
+            follower_total_value: Total value of follower purchases
+            min_leader_value: Minimum leader buy value
+            min_follower_value: Minimum follower buy value
+            min_followers: Minimum number of followers required
+        
+        Returns:
+            True if signal is triggered
+        """
+        # Condition 1: Large leader buy
+        has_leader = leader_buy_value >= min_leader_value
+        
+        # Condition 2: Enough followers
+        has_followers = num_followers >= min_followers
+        
+        # Condition 3: Followers have substantial positions
+        avg_follower_value = follower_total_value / num_followers if num_followers > 0 else 0
+        followers_substantial = avg_follower_value >= min_follower_value
+        
+        return has_leader and has_followers and followers_substantial
     
     async def get_institutional_position_changes(
         self,

@@ -20,9 +20,54 @@ class DoublingDownSignal:
     """
     
     def __init__(self):
-        """Initialize signal generator"""
-        self.postgres_service = get_postgres_service()
-        self.alphavantage_service = get_alphavantage_service()
+        """Initialize signal generator with lazy-loaded services"""
+        self._postgres_service = None
+        self._alphavantage_service = None
+    
+    @property
+    def postgres_service(self):
+        """Lazy-load postgres service"""
+        if self._postgres_service is None:
+            self._postgres_service = get_postgres_service()
+        return self._postgres_service
+    
+    @property
+    def alphavantage_service(self):
+        """Lazy-load alphavantage service"""
+        if self._alphavantage_service is None:
+            self._alphavantage_service = get_alphavantage_service()
+        return self._alphavantage_service
+    
+    def evaluate(
+        self,
+        current_price: float,
+        estimated_cost_basis: float,
+        current_shares: int,
+        previous_shares: int
+    ) -> bool:
+        """
+        Evaluate if Doubling Down signal is triggered (synchronous)
+        
+        Signal A Logic:
+        - Stock price < Investor's estimated cost basis
+        - Share count increased from previous quarter
+        
+        Args:
+            current_price: Current stock price
+            estimated_cost_basis: Investor's estimated average cost
+            current_shares: Current quarter share count
+            previous_shares: Previous quarter share count
+        
+        Returns:
+            True if signal is triggered
+        """
+        # Condition 1: Price below cost basis
+        price_below_cost = current_price < estimated_cost_basis
+        
+        # Condition 2: Share count increased
+        shares_increased = current_shares > previous_shares
+        
+        return price_below_cost and shares_increased
     
     async def calculate_estimated_cost_basis(
         self,

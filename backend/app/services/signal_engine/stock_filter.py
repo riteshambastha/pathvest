@@ -38,7 +38,7 @@ class StockFilter:
     def _get_postgres_service(self):
         """Get postgres service lazily"""
         if self.postgres_service is None:
-        self.postgres_service = get_postgres_service()
+            self.postgres_service = get_postgres_service()
         return self.postgres_service
 
     def meets_market_cap_threshold(self, market_cap: float) -> bool:

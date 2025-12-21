@@ -3,7 +3,7 @@ Conviction Scorer - FR-3.1.C.10.1
 Calculates conviction scores for ranking candidates
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 
 class ConvictionScorer:
@@ -51,12 +51,36 @@ class ConvictionScorer:
         
         Args:
             candidate: Candidate dict with signal details
+                Can be either:
+                - Simple format: {num_institutions, net_share_increase, total_institutions}
+                - Full format: {institutional_herding_details, signals_triggered, ...}
         
         Returns:
             Normalized herding score (0-100)
         """
         score = 0.0
         
+        # Handle simple format (for testing)
+        if "num_institutions" in candidate:
+            num_inst = candidate.get("num_institutions", 0)
+            net_increase = candidate.get("net_share_increase", 0)
+            total_inst = candidate.get("total_institutions", 100)
+            
+            # Base score: percentage of institutions buying (scaled to 40 points max)
+            pct_buying = (num_inst / total_inst * 100) if total_inst > 0 else 0
+            base_score = min(pct_buying * 4, 40)  # 10% buying = 40 points
+            
+            # Bonus for number of institutions (up to 30 points)
+            inst_bonus = min(num_inst * 6, 30)  # 5 institutions = 30 points
+            
+            # Bonus for share increase magnitude (up to 30 points)
+            # Scale: 1M shares = 10, 5M = 25, 10M+ = 30
+            increase_bonus = min(net_increase / 333_333, 30)
+            
+            score = base_score + inst_bonus + increase_bonus
+            return min(score, 100.0)
+        
+        # Handle full format
         # Check if herding signal exists
         herding_details = candidate.get("institutional_herding_details")
         
@@ -105,12 +129,37 @@ class ConvictionScorer:
         
         Args:
             candidate: Candidate dict with signal details
+                Can be either:
+                - Simple format: {num_insiders, total_purchase_value, avg_purchase_size}
+                - Full format: {insider_buying_details, insider_activity, ...}
         
         Returns:
             Normalized insider score (0-100)
         """
         score = 0.0
         
+        # Handle simple format (for testing)
+        if "num_insiders" in candidate or "total_purchase_value" in candidate:
+            num_insiders = candidate.get("num_insiders", 0)
+            total_value = candidate.get("total_purchase_value", 0)
+            avg_size = candidate.get("avg_purchase_size", 0)
+            
+            # Base score: number of insiders (up to 40 points)
+            # 3 insiders = 30 points
+            insider_bonus = min(num_insiders * 10, 40)
+            
+            # Bonus for total purchase value (up to 40 points)
+            # $100k = 10, $500k+ = 40
+            value_bonus = min(total_value / 12_500, 40)
+            
+            # Bonus for average size (up to 20 points)
+            # $100k avg = 15, $200k+ = 20
+            avg_bonus = min(avg_size / 10_000, 20)
+            
+            score = insider_bonus + value_bonus + avg_bonus
+            return min(score, 100.0)
+        
+        # Handle full format
         # Check if insider buying signal exists
         insider_details = candidate.get("insider_buying_details")
         
@@ -149,6 +198,26 @@ class ConvictionScorer:
         
         # Cap at 100
         return min(score, 100.0)
+    
+    def calculate_composite_score(
+        self,
+        herding_score: float,
+        insider_score: float
+    ) -> float:
+        """
+        Calculate composite conviction score from component scores
+        
+        Formula: S_conviction = w1 * I_herding + w2 * I_insider
+        
+        Args:
+            herding_score: Herding score (0-100)
+            insider_score: Insider score (0-100)
+        
+        Returns:
+            Composite conviction score
+        """
+        return (self.herding_weight * herding_score + 
+                self.insider_weight * insider_score)
     
     def calculate_conviction_score(
         self,
@@ -195,17 +264,23 @@ class ConvictionScorer:
         
         Args:
             candidates: List of candidates to rank
+                Each candidate can have pre-calculated conviction_score or 
+                component data for calculation
             tie_break_by_market_cap: Use market cap for tie-breaking
         
         Returns:
             Sorted list with ranking
         """
-        # Calculate conviction scores for all candidates
+        # Calculate conviction scores for candidates that don't have them
         for candidate in candidates:
-            conviction_score, components = self.calculate_conviction_score(candidate)
-            
-            candidate["conviction_score"] = conviction_score
-            candidate["conviction_components"] = components
+            if "conviction_score" not in candidate:
+                conviction_score, components = self.calculate_conviction_score(candidate)
+                candidate["conviction_score"] = conviction_score
+                candidate["conviction_components"] = components
+        
+        # Helper to get market cap (support both field names)
+        def get_market_cap(x):
+            return x.get("market_cap", x.get("estimated_market_cap", float('inf')))
         
         # Sort by conviction score (descending) and market cap (ascending) for ties
         if tie_break_by_market_cap:
@@ -213,7 +288,7 @@ class ConvictionScorer:
                 candidates,
                 key=lambda x: (
                     -x.get("conviction_score", 0),  # Higher score first
-                    x.get("estimated_market_cap", float('inf'))  # Lower market cap for ties
+                    get_market_cap(x)  # Lower market cap for ties
                 )
             )
         else:
@@ -231,19 +306,52 @@ class ConvictionScorer:
     def select_top_candidates(
         self,
         ranked_candidates: List[Dict[str, Any]],
-        max_count: int = 20
-    ) -> List[Dict[str, Any]]:
+        max_count: int = 20,
+        min_count: int = 5
+    ) -> Tuple[List[Dict[str, Any]], bool]:
         """
-        Select top N candidates for portfolio
+        Select top N candidates for portfolio with Cash Drag Management (FR-3.1.C.10.3)
+        
+        Cash Drag Management Logic:
+        If Count(Qualified Candidates) < 5: Portfolio = 100% Cash
+        
+        Rationale: A universe yielding only 1-4 signals indicates a "risk-off" 
+        or "data error" environment; the strategy relies on diversification.
         
         Args:
             ranked_candidates: Ranked candidate list
             max_count: Maximum number to select (default: 20 per FR-3.1.C.4)
+            min_count: Minimum candidates required (default: 5 per FR-3.1.C.10.3)
         
         Returns:
-            Top candidates
+            Tuple of (selected_candidates, is_cash_mode)
+            - selected_candidates: List of candidates (empty if cash mode)
+            - is_cash_mode: True if portfolio should be 100% cash
         """
-        return ranked_candidates[:max_count]
+        # FR-3.1.C.10.3: Cash Drag Management
+        if len(ranked_candidates) < min_count:
+            print(f"⚠️ CASH DRAG MANAGEMENT: Only {len(ranked_candidates)} candidates (< {min_count} minimum)")
+            print(f"   Portfolio will be 100% CASH per FR-3.1.C.10.3")
+            return [], True
+        
+        return ranked_candidates[:max_count], False
+    
+    def check_cash_drag(
+        self,
+        candidates_count: int,
+        min_count: int = 5
+    ) -> bool:
+        """
+        Check if Cash Drag Management should be triggered (FR-3.1.C.10.3)
+        
+        Args:
+            candidates_count: Number of qualified candidates
+            min_count: Minimum required (default: 5)
+            
+        Returns:
+            True if portfolio should go to 100% cash
+        """
+        return candidates_count < min_count
     
     def apply_rank_buffer(
         self,

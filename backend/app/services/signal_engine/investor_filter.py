@@ -52,7 +52,7 @@ class InvestorFilter:
     def _get_postgres_service(self):
         """Get postgres service lazily"""
         if self.postgres_service is None:
-        self.postgres_service = get_postgres_service()
+            self.postgres_service = get_postgres_service()
         return self.postgres_service
 
     def meets_aum_threshold(self, aum: float) -> bool:
