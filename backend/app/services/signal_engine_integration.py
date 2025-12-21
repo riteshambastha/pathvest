@@ -77,8 +77,8 @@ class SignalEngineIntegration:
         print(f"\n1. Filtering universe...")
         universe = await self.universe_filter.get_universe_at_date(
             as_of_date=end_dt,
-            index_name=strategy_config.get('index_membership', 'SP1500'),
-            min_market_cap=strategy_config.get('min_market_cap', 500_000_000)
+            index_name=strategy_config.get('index_membership', 'ALL'),
+            min_market_cap=strategy_config.get('min_market_cap', 3_000_000_000)
         )
         print(f"   ✅ Universe: {len(universe)} stocks")
         

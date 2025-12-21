@@ -175,50 +175,36 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
       <div className="bg-gray-50 p-4 rounded-lg">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Universe Filters</h3>
         
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Market Cap Min ($B)
-            </label>
-            <input
-              type="number"
-              value={(config.universe_filters?.market_cap_min || 1e9) / 1e9}
-              onChange={(e) =>
-                updateConfig({
-                  universe_filters: {
-                    market_cap_min: parseFloat(e.target.value) * 1e9,
-                    index_membership: config.universe_filters?.index_membership || 'SP500',
-                    lookback_quarters: config.universe_filters?.lookback_quarters || 4,
-                  },
-                })
-              }
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              step="0.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Index Membership
-            </label>
-            <select
-              value={config.universe_filters?.index_membership || 'SP500'}
-              onChange={(e) =>
-                updateConfig({
-                  universe_filters: {
-                    market_cap_min: config.universe_filters?.market_cap_min || 1e9,
-                    index_membership: e.target.value,
-                    lookback_quarters: config.universe_filters?.lookback_quarters || 4,
-                  },
-                })
-              }
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            >
-              <option value="SP500">S&P 500</option>
-              <option value="SP400">S&P 400 (Mid Cap)</option>
-              <option value="SP600">S&P 600 (Small Cap)</option>
-              <option value="SP1500">S&P 1500 (All)</option>
-            </select>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Market Cap Min ($B)
+          </label>
+          <input
+            type="number"
+            value={(config.universe_filters?.market_cap_min || 3e9) / 1e9}
+            onChange={(e) =>
+              updateConfig({
+                universe_filters: {
+                  market_cap_min: parseFloat(e.target.value) * 1e9,
+                  index_membership: 'ALL',  // No index restriction - use market cap only
+                  lookback_quarters: config.universe_filters?.lookback_quarters || 4,
+                },
+              })
+            }
+            className="mt-1 block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            step="0.5"
+            min="0.5"
+          />
+          <p className="mt-2 text-sm text-gray-500">
+            Filter companies by minimum market capitalization. This ensures you're tracking 
+            institutional activity in liquid, established companies. Recommended: $3B+
+          </p>
+          <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+            <p className="text-xs text-blue-800">
+              <span className="font-semibold">💡 Why no Index filter?</span> Institutional investors 
+              often buy stocks outside major indices. Using only Market Cap ensures you capture 
+              all significant positions from 13F filings without missing opportunities.
+            </p>
           </div>
         </div>
       </div>

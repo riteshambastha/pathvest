@@ -99,9 +99,19 @@ class TestStockFilter:
     
     def test_index_membership_filter(self):
         """Test S&P index membership filter."""
-        filter_obj = StockFilter(index_membership="SP1500")
+        # 'ALL' filter - accepts any stock (no index restriction)
+        filter_all = StockFilter(index_membership="ALL")
+        assert filter_all.is_in_index("AAPL", "SP500") == True
+        assert filter_all.is_in_index("TSLA", "SP600") == True
+        assert filter_all.is_in_index("PRIVCO", "NONE") == True  # Not in any index
+        assert filter_all.is_in_index("STARTUP", "") == True  # Empty index
+        
+        # Default behavior (no index specified) = ALL
+        filter_default = StockFilter()
+        assert filter_default.is_in_index("ANY", "ANY") == True
         
         # SP1500 includes all three indices
+        filter_obj = StockFilter(index_membership="SP1500")
         assert filter_obj.is_in_index("AAPL", "SP500") == True
         assert filter_obj.is_in_index("MSFT", "SP400") == True
         assert filter_obj.is_in_index("TSLA", "SP600") == True

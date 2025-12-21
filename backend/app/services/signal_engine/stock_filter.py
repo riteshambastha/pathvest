@@ -33,7 +33,8 @@ class StockFilter:
 
         # Set filter criteria from parameters or defaults
         self.market_cap_min = market_cap_min if market_cap_min is not None else self.DEFAULT_MIN_MARKET_CAP
-        self.index_membership = index_membership
+        # Default to 'ALL' - no index restriction, use market cap only
+        self.index_membership = index_membership if index_membership else 'ALL'
 
     def _get_postgres_service(self):
         """Get postgres service lazily"""
@@ -46,10 +47,24 @@ class StockFilter:
         return market_cap >= self.market_cap_min
 
     def is_in_index(self, ticker: str, index: str) -> bool:
-        """Check if stock is in specified index."""
+        """
+        Check if stock is in specified index.
+        
+        Args:
+            ticker: Stock ticker symbol
+            index: The index the stock belongs to (SP500, SP400, SP600, etc.)
+        
+        Returns:
+            True if stock passes index filter
+        """
+        # 'ALL' means no index restriction - accept any stock
+        if self.index_membership == 'ALL' or self.index_membership is None:
+            return True
+        
         if self.index_membership == "SP1500":
             # SP1500 includes SP500, SP400, SP600
             return index in ["SP500", "SP400", "SP600", "SP1500"]
+        
         return index == self.index_membership
     
     async def filter_by_market_cap(

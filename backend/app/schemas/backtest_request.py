@@ -17,12 +17,12 @@ class BacktestPeriod(BaseModel):
 class UniverseFilters(BaseModel):
     """Universe filtering criteria"""
     market_cap_min: float = Field(
-        default=500_000_000,
-        description="Minimum market capitalization in dollars"
+        default=3_000_000_000,
+        description="Minimum market capitalization in dollars (default: $3B)"
     )
     index_membership: str = Field(
-        default="SP1500",
-        description="Index membership requirement (SP500, SP400, SP600, SP1500)"
+        default="ALL",
+        description="Index membership requirement (ALL=no restriction, SP500, SP400, SP600, SP1500)"
     )
     lookback_quarters: int = Field(
         default=9,
@@ -250,7 +250,7 @@ class BacktestRequest(BaseModel):
                     "initial_capital": 1000000,
                     "universe_filters": {
                         "market_cap_min": 3000000000,
-                        "index_membership": "SP1500",
+                        "index_membership": "ALL",
                         "lookback_quarters": 9
                     }
                 },

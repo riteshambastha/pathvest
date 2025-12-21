@@ -99,7 +99,7 @@ def sample_strategy_config():
         "initial_capital": 1000000,
         "universe_filters": {
             "market_cap_min": 3000000000,
-            "index_membership": "SP1500",
+            "index_membership": "ALL",
             "lookback_quarters": 9
         },
         "sub_universe_filters": {
