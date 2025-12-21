@@ -74,14 +74,16 @@ class HistoricalBacktestEngine:
         print(f"📈 Fetching historical prices for {symbol}...")
         
         # Use TIME_SERIES_DAILY for historical data
-        # Note: 'compact' returns last 100 data points (free tier)
-        # 'full' requires premium subscription
+        # Using 'full' output for premium API key to get complete historical data
+        # This allows proper backtesting over any date range
         params = {
             'function': 'TIME_SERIES_DAILY',
             'symbol': symbol,
-            'outputsize': 'compact',  # Free tier: last 100 data points
+            'outputsize': 'full',  # Premium API: Full historical data (20+ years)
             'apikey': self.api_key
         }
+        
+        print(f"   🔑 Using API key: {self.api_key[:10]}... | Mode: FULL (premium)")
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:

@@ -4,7 +4,7 @@ Defines the JSON schema for backtest configuration requests
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date
 
 
@@ -208,11 +208,22 @@ class Heartbeat(BaseModel):
     )
 
 
+class StockSelection(BaseModel):
+    """Stock selection and institution filtering"""
+    selected_institutions: List[str] = Field(
+        default_factory=list,
+        description="List of institution CIKs to track"
+    )
+
+
 class StrategyConfig(BaseModel):
     """Complete strategy configuration"""
     name: str = Field(..., description="Strategy name")
     backtest_period: BacktestPeriod
     initial_capital: float = Field(default=1_000_000, description="Initial capital in dollars")
+    
+    # Stock selection with institutions
+    stock_selection: Optional[StockSelection] = Field(default_factory=StockSelection)
     
     universe_filters: UniverseFilters = Field(default_factory=UniverseFilters)
     sub_universe_filters: SubUniverseFilters = Field(default_factory=SubUniverseFilters)
@@ -222,6 +233,10 @@ class StrategyConfig(BaseModel):
     exit_rules: ExitRules = Field(default_factory=ExitRules)
     transaction_costs: TransactionCosts = Field(default_factory=TransactionCosts)
     heartbeat: Heartbeat = Field(default_factory=Heartbeat)
+    
+    # Additional fields that may be sent by frontend
+    signal_criteria: Optional[Dict[str, Any]] = Field(default=None)
+    risk_management: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class BacktestRequest(BaseModel):

@@ -461,8 +461,8 @@ class BacktestOrchestrator:
                 print(f"🛑 Exit config: Stop-Loss={exit_config['stop_loss_pct']*100:.0f}% | Take-Profit={exit_config['take_profit_pct']*100:.0f}% | Trailing-Stop={exit_config['trailing_stop_pct']*100:.0f}%")
 
                 # Extract rebalancing configuration from strategy
-                risk_management = strategy_config.get('risk_management', {})
-                heartbeat = strategy_config.get('heartbeat', {})
+                risk_management = strategy_config.get('risk_management') or {}
+                heartbeat = strategy_config.get('heartbeat') or {}
                 rebalance_frequency = heartbeat.get('rebalance_frequency') or risk_management.get('rebalancing_frequency', 'monthly')
                 rebalance_config = {
                     'frequency': rebalance_frequency,
@@ -581,10 +581,12 @@ class BacktestOrchestrator:
             print(f"   Date range: {start_date} to {end_date}")
             
             # Query holdings from database for selected institutions
-            # Using CUSIP instead of ticker since ticker data is missing
-            query = text("""
+            # Using ticker if available, otherwise CUSIP
+            # Build dynamic IN clause for CIKs
+            cik_placeholders = ', '.join([f":cik_{i}" for i in range(len(selected_institutions))])
+            query_str = f"""
                 SELECT 
-                    h.cusip as ticker,  -- Using CUSIP as identifier since ticker is NULL
+                    COALESCE(NULLIF(h.ticker, ''), h.cusip) as ticker,
                     h.cusip,
                     i.cik,
                     f.filing_date as filing_date,
@@ -594,24 +596,30 @@ class BacktestOrchestrator:
                 FROM holdings h
                 JOIN filings f ON h.filing_id = f.id
                 JOIN institutions i ON f.institution_id = i.id
-                WHERE i.cik = ANY(:ciks)
+                WHERE i.cik IN ({cik_placeholders})
                     AND f.filing_date >= :start_date
                     AND f.filing_date <= :end_date
                     AND h.cusip IS NOT NULL
                     AND h.cusip != ''
                 ORDER BY f.filing_date, h.value DESC
-            """)
+                LIMIT 50000
+            """
+            query = text(query_str)
+            
+            # Build parameters dict with individual CIK placeholders
+            params = {
+                "start_date": start_date,
+                "end_date": end_date
+            }
+            for i, cik in enumerate(selected_institutions):
+                params[f"cik_{i}"] = cik
             
             print(f"🔍 DEBUG: Executing database query with params:")
             print(f"   ciks: {selected_institutions}")
             print(f"   start_date: {start_date}")
             print(f"   end_date: {end_date}")
             
-            result = db.execute(query, {
-                "ciks": selected_institutions,
-                "start_date": start_date,
-                "end_date": end_date
-            })
+            result = db.execute(query, params)
             
             rows = result.fetchall()
             print(f"🔍 DEBUG: Database query returned {len(rows)} rows")

@@ -532,26 +532,30 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
                     print(f"🔍   - sub_universe_filters keys: {list(sub_universe.keys())}")
                     print(f"🔍   - selected_institutions in sub_universe_filters: {sub_universe.get('selected_institutions', 'NOT FOUND')}")
 
-            # Try to extract institutions
+            # Try to extract institutions - check stock_selection FIRST since that's what the API sends
             selected_institutions = []
-            if 'selected_institutions' in config_dict:
-                selected_institutions = config_dict['selected_institutions']
-                print(f"✅ FOUND: Top level selected_institutions: {selected_institutions}")
-            elif 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
-                if 'selected_institutions' in config_dict['sub_universe_filters']:
-                    selected_institutions = config_dict['sub_universe_filters']['selected_institutions']
-                    print(f"✅ FOUND: sub_universe_filters.selected_institutions: {selected_institutions}")
-                else:
-                    print(f"❌ sub_universe_filters exists but no selected_institutions key")
-            elif 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
+            
+            # 1. Check stock_selection (API request format)
+            if 'stock_selection' in config_dict and isinstance(config_dict['stock_selection'], dict):
                 if 'selected_institutions' in config_dict['stock_selection']:
                     selected_institutions = config_dict['stock_selection']['selected_institutions']
                     print(f"✅ FOUND: stock_selection.selected_institutions: {selected_institutions}")
-                else:
-                    print(f"❌ stock_selection exists but no selected_institutions key")
-            else:
+            
+            # 2. Check sub_universe_filters (frontend format)
+            if not selected_institutions and 'sub_universe_filters' in config_dict and isinstance(config_dict['sub_universe_filters'], dict):
+                if 'selected_institutions' in config_dict['sub_universe_filters']:
+                    selected_institutions = config_dict['sub_universe_filters']['selected_institutions']
+                    print(f"✅ FOUND: sub_universe_filters.selected_institutions: {selected_institutions}")
+            
+            # 3. Check top level
+            if not selected_institutions and 'selected_institutions' in config_dict:
+                selected_institutions = config_dict['selected_institutions']
+                print(f"✅ FOUND: Top level selected_institutions: {selected_institutions}")
+            
+            if not selected_institutions:
                 print(f"❌ Could not find selected_institutions in any expected location!")
-                print(f"❌ FULL CONFIG DUMP: {json.dumps(config_dict, indent=2, default=str)}")
+                print(f"❌ stock_selection: {config_dict.get('stock_selection')}")
+                print(f"❌ sub_universe_filters: {config_dict.get('sub_universe_filters')}")
             
             print(f"📊 FINAL RESULT: Using {len(selected_institutions) if selected_institutions else 0} institutions for backtest")
             print(f"📊 Institutions: {selected_institutions}")
