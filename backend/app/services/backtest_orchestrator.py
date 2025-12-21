@@ -399,7 +399,22 @@ class BacktestOrchestrator:
                     # LEAN failed, fallback to custom engine
                     print(f"⚠️  LEAN engine failed, falling back to Custom Engine")
                     update_progress("LEAN failed, using Custom Engine...", 85)
-                    engine = HistoricalBacktestEngine(initial_capital=strategy_config.get('initial_capital', 100000))
+                    
+                    # Extract exit configuration
+                    exit_rules = strategy_config.get('exit_rules', {})
+                    exit_config = {
+                        'enable_stop_loss': True,
+                        'enable_take_profit': exit_rules.get('take_profit_enabled', True),
+                        'enable_trailing_stop': exit_rules.get('trailing_stop_enabled', True),
+                        'stop_loss_pct': exit_rules.get('trailing_stop_pct', 0.10),
+                        'take_profit_pct': exit_rules.get('take_profit_pct', 0.30),
+                        'trailing_stop_pct': exit_rules.get('trailing_stop_pct', 0.15)
+                    }
+                    
+                    engine = HistoricalBacktestEngine(
+                        initial_capital=strategy_config.get('initial_capital', 100000),
+                        exit_config=exit_config
+                    )
                     raw_results = engine.run_backtest(signals, historical_prices, start_date, end_date)
                     
                     # Wrap metrics under 'summary' key
@@ -433,7 +448,36 @@ class BacktestOrchestrator:
                     sample_ticker = list(historical_prices.keys())[0]
                     print(f"🔍 Sample price data for {sample_ticker}: {type(historical_prices[sample_ticker])}")
 
-                engine = HistoricalBacktestEngine(initial_capital=strategy_config.get('initial_capital', 100000))
+                # Extract exit configuration from strategy
+                exit_rules = strategy_config.get('exit_rules', {})
+                exit_config = {
+                    'enable_stop_loss': exit_rules.get('trailing_stop_enabled', True),  # Use trailing stop as stop-loss toggle
+                    'enable_take_profit': exit_rules.get('take_profit_enabled', True),
+                    'enable_trailing_stop': exit_rules.get('trailing_stop_enabled', True),
+                    'stop_loss_pct': exit_rules.get('trailing_stop_pct', 0.10),  # Default 10%
+                    'take_profit_pct': exit_rules.get('take_profit_pct', 0.30),  # Default 30%
+                    'trailing_stop_pct': exit_rules.get('trailing_stop_pct', 0.15)  # Default 15%
+                }
+                print(f"🛑 Exit config: Stop-Loss={exit_config['stop_loss_pct']*100:.0f}% | Take-Profit={exit_config['take_profit_pct']*100:.0f}% | Trailing-Stop={exit_config['trailing_stop_pct']*100:.0f}%")
+
+                # Extract rebalancing configuration from strategy
+                risk_management = strategy_config.get('risk_management', {})
+                heartbeat = strategy_config.get('heartbeat', {})
+                rebalance_frequency = heartbeat.get('rebalance_frequency') or risk_management.get('rebalancing_frequency', 'monthly')
+                rebalance_config = {
+                    'frequency': rebalance_frequency,
+                    'drift_threshold': risk_management.get('drift_threshold', 0.05),  # 5% drift threshold
+                    'target_weight': 0.05,  # Fixed 5% per SRS
+                    'min_positions': strategy_config.get('min_positions', 5),
+                    'max_positions': strategy_config.get('max_positions', 20)
+                }
+                print(f"⚖️ Rebalance config: Frequency={rebalance_config['frequency'].upper()} | Drift={rebalance_config['drift_threshold']*100:.0f}%")
+
+                engine = HistoricalBacktestEngine(
+                    initial_capital=strategy_config.get('initial_capital', 100000),
+                    exit_config=exit_config,
+                    rebalance_config=rebalance_config
+                )
                 raw_results = engine.run_backtest(signals, historical_prices, start_date, end_date)
                 
                 # Wrap metrics under 'summary' key for API schema compatibility

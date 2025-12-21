@@ -874,17 +874,32 @@ def _convert_orchestrator_result_to_response(backtest_id: str, request: Backtest
             # Handle the format from HistoricalBacktestEngine (date, ticker, action, shares, price, cost)
             if 'date' in t and 'entry_date' not in t:
                 date_str = t['date'].strftime('%Y-%m-%d') if hasattr(t['date'], 'strftime') else str(t['date'])[:10]
+                action = t.get('action', 'BUY')
+                
+                # Extract exit-specific fields for SELL trades
+                exit_reason = t.get('exit_reason', '') or t.get('exit_type', action)
+                pnl = float(t.get('pnl', 0))
+                return_pct = float(t.get('return_pct', 0))
+                
+                # Get entry price (for exits, this is stored separately)
+                if action == 'SELL':
+                    entry_price = float(t.get('entry_price', 0) or t.get('price', 1.0))
+                    exit_price = float(t.get('price', 0))
+                else:
+                    entry_price = float(t.get('price', 1.0))
+                    exit_price = None
+                
                 trade = Trade(
                     entry_date=date_str,  # Always set entry_date for BUY trades
-                    exit_date=date_str if t.get('action') == 'SELL' else None,
+                    exit_date=date_str if action == 'SELL' else None,
                     ticker=t.get('ticker', 'UNKNOWN'),
-                    entry_price=float(t.get('price', 1.0)),  # Default to 1.0 to avoid 0
-                    exit_price=float(t.get('price', 0)) if t.get('action') == 'SELL' else None,
+                    entry_price=entry_price,
+                    exit_price=exit_price,
                     shares=float(t.get('shares', 0)),
-                    pnl=0.0,
-                    return_pct=0.0,
+                    pnl=pnl,
+                    return_pct=return_pct * 100 if abs(return_pct) < 1 else return_pct,  # Convert to percent if needed
                     holding_period_days=0,
-                    exit_reason=t.get('action', 'unknown'),
+                    exit_reason=exit_reason,
                     signal_type='institutional',
                     conviction_score=50.0,
                     rank=0

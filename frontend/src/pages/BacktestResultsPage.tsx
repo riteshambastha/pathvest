@@ -518,28 +518,26 @@ const BacktestResultsPage: React.FC = () => {
                           <span className="font-semibold">Stocks:</span> {(results as any).stocks_analyzed?.join(', ') || 'N/A'}
                         </div>
                         <div className="bg-white rounded px-3 py-2">
-                          <span className="font-semibold">SEC Filings:</span> {(results as any).sec_filings_count || 0}
+                          <span className="font-semibold">SEC Filings:</span> {(results as any).sec_filings_fetched || 0}
                         </div>
                       </div>
                       
-                      {/* Display actual fetched prices */}
+                      {/* Display data source details */}
                       <div className="mt-3">
                         <p className="font-semibold mb-2">Real-time prices fetched:</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                          {Object.entries((results as any).real_market_data || {}).map(([symbol, data]: [string, any]) => (
-                            <div key={symbol} className="bg-white rounded px-3 py-2 text-xs">
-                              <div className="font-bold text-blue-900">{symbol}</div>
-                              {data.price && (
-                                <>
-                                  <div className="text-gray-700">${data.price.toFixed(2)}</div>
-                                  <div className="text-gray-500">{data.date}</div>
-                                  <div className={`text-xs ${data.change_percent && data.change_percent.includes('-') ? 'text-red-600' : 'text-green-600'}`}>
-                                    {data.change_percent}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          ))}
+                          <div className="bg-white rounded px-3 py-2 text-sm">
+                            <div className="font-bold text-blue-900">data_source</div>
+                            <div className="text-gray-700">{(results as any).real_market_data?.data_source || 'AlphaVantage'}</div>
+                          </div>
+                          <div className="bg-white rounded px-3 py-2 text-sm">
+                            <div className="font-bold text-blue-900">api_calls</div>
+                            <div className="text-gray-700">{(results as any).real_market_data?.api_calls || (results as any).api_calls_made || 0}</div>
+                          </div>
+                          <div className="bg-white rounded px-3 py-2 text-sm">
+                            <div className="font-bold text-blue-900">note</div>
+                            <div className="text-gray-700 text-xs">{(results as any).real_market_data?.note || 'Real historical data'}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1014,37 +1012,54 @@ const OverviewTab: React.FC<{ results: BacktestResponse }> = ({ results }) => (
     {(results as any).real_market_data && (
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow rounded-lg p-6 border border-blue-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Real Market Data Used in This Backtest</h3>
+          <h3 className="text-lg font-medium text-gray-900">📊 Real Market Data Used in This Backtest</h3>
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             ✓ Verified Real Data
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries((results as any).real_market_data || {}).map(([symbol, data]: [string, any]) => (
-            <div key={symbol} className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-lg font-bold text-gray-900">{symbol}</span>
-                <span className={`text-sm font-medium ${data.change_percent?.includes('-') ? 'text-red-600' : 'text-green-600'}`}>
-                  {data.change_percent}
-                </span>
-              </div>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Price:</span>
-                  <span className="font-semibold">${data.price?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Volume:</span>
-                  <span className="font-semibold">{data.volume?.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Date:</span>
-                  <span className="font-semibold">{data.date}</span>
-                </div>
-              </div>
+        
+        {/* Data Source Information */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
+            <div className="text-sm text-gray-500">Data Source</div>
+            <div className="text-lg font-bold text-gray-900 capitalize">
+              {(results as any).real_market_data?.data_source || 'AlphaVantage'}
             </div>
-          ))}
+          </div>
+          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
+            <div className="text-sm text-gray-500">API Calls Made</div>
+            <div className="text-lg font-bold text-gray-900">
+              {(results as any).api_calls_made || (results as any).real_market_data?.api_calls || 0}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
+            <div className="text-sm text-gray-500">SEC Filings Analyzed</div>
+            <div className="text-lg font-bold text-gray-900">
+              {(results as any).sec_filings_fetched || 0}
+            </div>
+          </div>
         </div>
+        
+        {/* Stocks Analyzed */}
+        {(results as any).stocks_analyzed && (results as any).stocks_analyzed.length > 0 && (
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="text-sm text-gray-500 mb-2">Stocks Analyzed</div>
+            <div className="flex flex-wrap gap-2">
+              {(results as any).stocks_analyzed.map((stock: string) => (
+                <span key={stock} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  {stock}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Note */}
+        {(results as any).real_market_data?.note && (
+          <div className="mt-4 text-sm text-gray-600 italic">
+            ℹ️ {(results as any).real_market_data.note}
+          </div>
+        )}
       </div>
     )}
 
@@ -1067,46 +1082,25 @@ const OverviewTab: React.FC<{ results: BacktestResponse }> = ({ results }) => (
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries((results as any).institutional_signals).map(([ticker, signals]: [string, any]) => (
-            <div key={ticker} className="bg-white rounded-lg p-4 shadow-sm border border-purple-200">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-lg font-bold text-gray-900">{ticker}</span>
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {signals.length} signal{signals.length > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {signals.map((signal: any, idx: number) => (
-                  <div key={idx} className="text-sm border-l-2 border-purple-300 pl-3 py-1">
-                    <div className="font-semibold text-gray-900 mb-1">
-                      {signal.institution}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className={`font-medium ${
-                        signal.signal === 'doubled_down' ? 'text-green-600' :
-                        signal.signal === 'increased' ? 'text-blue-600' :
-                        signal.signal === 'new_position' ? 'text-purple-600' :
-                        'text-gray-600'
-                      }`}>
-                        {signal.signal === 'doubled_down' ? '📈 Doubled Down' :
-                         signal.signal === 'increased' ? '⬆️ Increased' :
-                         signal.signal === 'new_position' ? '✨ New Position' :
-                         signal.signal === 'decreased' ? '⬇️ Decreased' :
-                         '➡️ No Change'}
-                      </span>
-                      {signal.change_pct !== undefined && (
-                        <span className={`text-xs font-bold ${signal.change_pct > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {signal.change_pct > 0 ? '+' : ''}{signal.change_pct.toFixed(1)}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
+            <div className="text-sm text-gray-500">SEC Filings Analyzed</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {(results as any).institutional_signals?.sec_filings_fetched || 0}
             </div>
-          ))}
+          </div>
+          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
+            <div className="text-sm text-gray-500">Institutions Tracked</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {(results as any).institutional_signals?.institutions_tracked || 0}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
+            <div className="text-sm text-gray-500">Mode</div>
+            <div className="text-lg font-bold text-green-600">
+              {(results as any).institutional_signals?.simulation_mode ? '🧪 Simulation' : '📊 Real Data'}
+            </div>
+          </div>
         </div>
       </div>
     )}
@@ -1255,124 +1249,282 @@ const OverviewTab: React.FC<{ results: BacktestResponse }> = ({ results }) => (
   </div>
 );
 
-// Trades Tab
-const TradesTab: React.FC<{ trades: any[]; onExport: () => void }> = ({ trades, onExport }) => (
+// Helper function to get exit signal styling
+const getExitSignalStyle = (exitReason: string) => {
+  const reason = (exitReason || '').toLowerCase();
+  
+  if (reason.includes('stop-loss') || reason.includes('stop_loss')) {
+    return {
+      bg: 'bg-gradient-to-r from-red-500 to-rose-600',
+      text: 'text-white',
+      icon: '🛑',
+      label: 'Stop Loss',
+      border: 'border-l-4 border-red-500'
+    };
+  }
+  if (reason.includes('take-profit') || reason.includes('take_profit') || reason.includes('profit')) {
+    return {
+      bg: 'bg-gradient-to-r from-emerald-500 to-green-600',
+      text: 'text-white',
+      icon: '🎯',
+      label: 'Take Profit',
+      border: 'border-l-4 border-emerald-500'
+    };
+  }
+  if (reason.includes('trailing') || reason.includes('trail')) {
+    return {
+      bg: 'bg-gradient-to-r from-amber-500 to-orange-600',
+      text: 'text-white',
+      icon: '📉',
+      label: 'Trailing Stop',
+      border: 'border-l-4 border-amber-500'
+    };
+  }
+  if (reason.includes('buy') || reason === 'buy') {
+    return {
+      bg: 'bg-gradient-to-r from-blue-500 to-indigo-600',
+      text: 'text-white',
+      icon: '📈',
+      label: 'Entry',
+      border: 'border-l-4 border-blue-500'
+    };
+  }
+  return {
+    bg: 'bg-gray-100',
+    text: 'text-gray-800',
+    icon: '📋',
+    label: exitReason || 'N/A',
+    border: 'border-l-4 border-gray-300'
+  };
+};
+
+// Trades Tab with beautiful exit signal highlighting
+const TradesTab: React.FC<{ trades: any[]; onExport: () => void }> = ({ trades, onExport }) => {
+  // Calculate exit signal statistics
+  const exitStats = {
+    stopLoss: trades.filter(t => (t.exit_reason || '').toLowerCase().includes('stop-loss') || (t.exit_reason || '').toLowerCase().includes('stop_loss')).length,
+    takeProfit: trades.filter(t => (t.exit_reason || '').toLowerCase().includes('profit')).length,
+    trailingStop: trades.filter(t => (t.exit_reason || '').toLowerCase().includes('trailing')).length,
+    entries: trades.filter(t => !t.exit_price || t.exit_price === 0).length,
+    totalPnL: trades.reduce((sum, t) => sum + (t.pnl || 0), 0)
+  };
+
+  return (
   <div className="space-y-6">
-    {/* Trade Summary Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="text-sm text-gray-600">Total Trades</div>
-        <div className="text-2xl font-bold text-gray-900">{trades.length}</div>
-      </div>
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="text-sm text-gray-600">Winning Trades</div>
-        <div className="text-2xl font-bold text-green-600">
-          {trades.filter(t => t.return_pct && t.return_pct > 0).length}
+    {/* Exit Signal Summary Cards */}
+    <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="bg-white shadow-lg rounded-xl p-4 border-l-4 border-blue-500">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">📈</span>
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Entries</div>
+            <div className="text-2xl font-bold text-blue-600">{exitStats.entries}</div>
+          </div>
         </div>
       </div>
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="text-sm text-gray-600">Losing Trades</div>
-        <div className="text-2xl font-bold text-red-600">
-          {trades.filter(t => t.return_pct && t.return_pct < 0).length}
+      
+      <div className="bg-white shadow-lg rounded-xl p-4 border-l-4 border-red-500">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🛑</span>
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Stop Loss</div>
+            <div className="text-2xl font-bold text-red-600">{exitStats.stopLoss}</div>
+          </div>
         </div>
       </div>
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="text-sm text-gray-600">Win Rate</div>
-        <div className="text-2xl font-bold text-blue-600">
-          {trades.length > 0 ? ((trades.filter(t => t.return_pct && t.return_pct > 0).length / trades.length) * 100).toFixed(0) : 0}%
+      
+      <div className="bg-white shadow-lg rounded-xl p-4 border-l-4 border-emerald-500">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🎯</span>
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Take Profit</div>
+            <div className="text-2xl font-bold text-emerald-600">{exitStats.takeProfit}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white shadow-lg rounded-xl p-4 border-l-4 border-amber-500">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">📉</span>
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Trailing Stop</div>
+            <div className="text-2xl font-bold text-amber-600">{exitStats.trailingStop}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white shadow-lg rounded-xl p-4 border-l-4 border-green-500">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">✅</span>
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Win Rate</div>
+            <div className="text-2xl font-bold text-green-600">
+              {trades.length > 0 ? ((trades.filter(t => t.return_pct && t.return_pct > 0).length / trades.length) * 100).toFixed(0) : 0}%
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className={`bg-white shadow-lg rounded-xl p-4 border-l-4 ${exitStats.totalPnL >= 0 ? 'border-green-500' : 'border-red-500'}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">💰</span>
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Total P&L</div>
+            <div className={`text-xl font-bold ${exitStats.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${exitStats.totalPnL.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Exit Signal Legend */}
+    <div className="bg-gradient-to-r from-slate-50 to-gray-100 rounded-xl p-4 shadow-sm">
+      <h4 className="text-sm font-semibold text-gray-700 mb-3">Exit Signal Types</h4>
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+            📈 Entry
+          </span>
+          <span className="text-xs text-gray-600">Position opened</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-red-500 to-rose-600 text-white">
+            🛑 Stop Loss
+          </span>
+          <span className="text-xs text-gray-600">Fixed % loss from entry</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500 to-green-600 text-white">
+            🎯 Take Profit
+          </span>
+          <span className="text-xs text-gray-600">Fixed % gain from entry</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-600 text-white">
+            📉 Trailing Stop
+          </span>
+          <span className="text-xs text-gray-600">% drop from peak price</span>
         </div>
       </div>
     </div>
 
     {/* Detailed Trade Table */}
-    <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900">Detailed Trade Log</h3>
+    <div className="bg-white shadow-lg rounded-xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-gray-100 flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Trade Log</h3>
+          <p className="text-sm text-gray-500">All entries and exits with exit signal details</p>
+        </div>
         <button
           onClick={onExport}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-md text-sm font-medium"
         >
-          Export CSV
+          📥 Export CSV
         </button>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticker</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Signal</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entry</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exit</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Return</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Exit Reason</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Conviction</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticker</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Entry</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Exit</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Return</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">P&L</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Exit Signal</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {trades.map((trade, idx) => (
-              <tr key={idx} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {trade.ticker}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    {trade.signal_type || 'N/A'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div>{trade.entry_date}</div>
-                  <div className="text-xs text-gray-400">${trade.entry_price?.toFixed(2)}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <div>{trade.exit_date || '-'}</div>
-                  <div className="text-xs text-gray-400">{trade.exit_price ? `$${trade.exit_price.toFixed(2)}` : '-'}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span
-                    className={`font-semibold ${trade.return_pct && trade.return_pct > 0 ? 'text-green-600' : 'text-red-600'}`}
-                  >
-                    {trade.return_pct ? `${(trade.return_pct * 100).toFixed(2)}%` : '-'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span className={`font-semibold ${trade.pnl && trade.pnl > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {trade.pnl ? `$${trade.pnl.toFixed(2)}` : '-'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {trade.holding_period_days || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                    {trade.exit_reason || 'N/A'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <div className="flex items-center">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 w-16">
-                      <div 
-                        className="bg-blue-500 h-2 rounded-full" 
-                        style={{ width: `${trade.conviction_score || 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-gray-600">{trade.conviction_score || 0}</span>
+          <tbody className="divide-y divide-gray-100">
+            {trades.map((trade, idx) => {
+              const exitStyle = getExitSignalStyle(trade.exit_reason);
+              const isExit = trade.exit_price && trade.exit_price > 0;
+              const returnPct = trade.return_pct || 0;
+              
+              return (
+              <tr 
+                key={idx} 
+                className={`hover:bg-gray-50 transition-colors ${exitStyle.border}`}
+              >
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{isExit ? '📉' : '📈'}</span>
+                    <span className="text-sm font-bold text-gray-900">{trade.ticker}</span>
                   </div>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${exitStyle.bg} ${exitStyle.text} shadow-sm`}>
+                    {exitStyle.icon} {isExit ? exitStyle.label : 'Entry'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{trade.entry_date}</div>
+                  <div className="text-sm text-gray-500">${trade.entry_price?.toFixed(2) || '0.00'}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {isExit ? (
+                    <>
+                      <div className="text-sm font-medium text-gray-900">{trade.exit_date}</div>
+                      <div className="text-sm text-gray-500">${trade.exit_price?.toFixed(2)}</div>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-400 italic">Open position</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {isExit ? (
+                    <div className={`inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-bold ${
+                      returnPct > 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {returnPct > 0 ? '↑' : '↓'} {Math.abs(returnPct).toFixed(1)}%
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {isExit ? (
+                    <div className={`text-sm font-bold ${trade.pnl && trade.pnl > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {trade.pnl > 0 ? '+' : ''}{trade.pnl ? `$${trade.pnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
+                </td>
+                <td className="px-6 py-4">
+                  {isExit ? (
+                    <div className="max-w-xs">
+                      <div className={`text-xs px-2 py-1 rounded ${
+                        trade.exit_reason?.toLowerCase().includes('stop-loss') ? 'bg-red-50 text-red-700' :
+                        trade.exit_reason?.toLowerCase().includes('profit') ? 'bg-green-50 text-green-700' :
+                        trade.exit_reason?.toLowerCase().includes('trailing') ? 'bg-amber-50 text-amber-700' :
+                        'bg-gray-50 text-gray-700'
+                      }`}>
+                        {trade.exit_reason || 'N/A'}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400 italic">Position active</span>
+                  )}
+                </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
       {trades.length === 0 && (
-        <div className="p-8 text-center text-gray-500">
-          No trades to display
+        <div className="p-12 text-center">
+          <span className="text-4xl mb-4 block">📊</span>
+          <p className="text-gray-500 text-lg">No trades to display</p>
+          <p className="text-gray-400 text-sm mt-2">Run a backtest to see trade details here</p>
         </div>
       )}
     </div>
   </div>
-);
+);};
 
 // Attribution Tab
 const AttributionTab: React.FC<{ backtestId: string; results: BacktestResponse }> = ({ backtestId, results }) => {

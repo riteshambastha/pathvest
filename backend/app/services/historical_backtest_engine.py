@@ -21,16 +21,50 @@ class HistoricalBacktestEngine:
     - SEC filing dates as signals
     - Realistic transaction costs
     - Proper position sizing
+    - Exit signals (stop-loss, take-profit, trailing stop)
+    - Rebalancing rules (never, weekly, monthly, quarterly, threshold-based)
     """
     
-    def __init__(self, initial_capital: float = 100000):
+    # Default exit parameters
+    DEFAULT_STOP_LOSS_PCT = 0.10      # 10% stop loss
+    DEFAULT_TAKE_PROFIT_PCT = 0.30    # 30% take profit
+    DEFAULT_TRAILING_STOP_PCT = 0.15  # 15% trailing stop from peak
+    
+    # Default rebalancing parameters
+    DEFAULT_REBALANCE_FREQUENCY = 'monthly'  # never, weekly, monthly, quarterly, threshold
+    DEFAULT_DRIFT_THRESHOLD = 0.05  # 5% drift triggers threshold-based rebalancing
+    DEFAULT_TARGET_WEIGHT = 0.05    # 5% per position (static sizing per SRS)
+    DEFAULT_MIN_POSITIONS = 5       # Minimum positions before 100% cash
+    DEFAULT_MAX_POSITIONS = 20      # Maximum positions
+    
+    def __init__(self, initial_capital: float = 100000, exit_config: Dict = None, rebalance_config: Dict = None):
         self.initial_capital = initial_capital
         self.cash = initial_capital
         self.positions = {}  # {ticker: shares}
+        self.position_details = {}  # {ticker: {entry_date, entry_price, peak_price, shares}}
         self.portfolio_history = []
         self.trades = []
         # Load API key dynamically (not at module level)
         self.api_key = os.getenv("ALPHAVANTAGE_API_KEY", "")
+        
+        # Exit configuration
+        self.exit_config = exit_config or {}
+        self.stop_loss_pct = self.exit_config.get('stop_loss_pct', self.DEFAULT_STOP_LOSS_PCT)
+        self.take_profit_pct = self.exit_config.get('take_profit_pct', self.DEFAULT_TAKE_PROFIT_PCT)
+        self.trailing_stop_pct = self.exit_config.get('trailing_stop_pct', self.DEFAULT_TRAILING_STOP_PCT)
+        self.enable_stop_loss = self.exit_config.get('enable_stop_loss', True)
+        self.enable_take_profit = self.exit_config.get('enable_take_profit', True)
+        self.enable_trailing_stop = self.exit_config.get('enable_trailing_stop', True)
+        
+        # Rebalancing configuration
+        self.rebalance_config = rebalance_config or {}
+        self.rebalance_frequency = self.rebalance_config.get('frequency', self.DEFAULT_REBALANCE_FREQUENCY)
+        self.drift_threshold = self.rebalance_config.get('drift_threshold', self.DEFAULT_DRIFT_THRESHOLD)
+        self.target_weight = self.rebalance_config.get('target_weight', self.DEFAULT_TARGET_WEIGHT)
+        self.min_positions = self.rebalance_config.get('min_positions', self.DEFAULT_MIN_POSITIONS)
+        self.max_positions = self.rebalance_config.get('max_positions', self.DEFAULT_MAX_POSITIONS)
+        self.last_rebalance_date = None
+        self.rebalance_count = 0
         
     async def fetch_historical_prices(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """
@@ -121,6 +155,23 @@ class HistoricalBacktestEngine:
                 self.cash -= cost
                 self.positions[ticker] = self.positions.get(ticker, 0) + shares
                 
+                # Track position details for exit signals
+                if ticker not in self.position_details:
+                    self.position_details[ticker] = {
+                        'entry_date': date,
+                        'entry_price': execution_price,
+                        'peak_price': execution_price,
+                        'shares': shares
+                    }
+                else:
+                    # Average up/down - update average entry price
+                    old_shares = self.position_details[ticker]['shares']
+                    old_cost = old_shares * self.position_details[ticker]['entry_price']
+                    new_total_shares = old_shares + shares
+                    new_avg_price = (old_cost + cost) / new_total_shares
+                    self.position_details[ticker]['entry_price'] = new_avg_price
+                    self.position_details[ticker]['shares'] = new_total_shares
+                
                 self.trades.append({
                     'date': date,
                     'ticker': ticker,
@@ -128,7 +179,8 @@ class HistoricalBacktestEngine:
                     'shares': shares,
                     'price': execution_price,
                     'cost': cost,
-                    'cash_after': self.cash
+                    'cash_after': self.cash,
+                    'entry_price': execution_price
                 })
                 print(f"  📈 BUY  {shares:,} {ticker} @ ${execution_price:.2f} = ${cost:,.2f}")
                 return True
@@ -173,28 +225,339 @@ class HistoricalBacktestEngine:
         )
         return self.cash + positions_value
     
+    def check_exit_signals(self, date: datetime, current_prices: Dict[str, float]) -> List[Dict]:
+        """
+        Check all open positions for exit signals (stop-loss, take-profit, trailing stop)
+        
+        Returns:
+            List of exit signal dicts with keys: ticker, reason, exit_type
+        """
+        exit_signals = []
+        
+        for ticker, details in list(self.position_details.items()):
+            if ticker not in current_prices:
+                continue
+                
+            current_price = current_prices[ticker]
+            entry_price = details['entry_price']
+            peak_price = details.get('peak_price', entry_price)
+            
+            # Update peak price
+            if current_price > peak_price:
+                self.position_details[ticker]['peak_price'] = current_price
+                peak_price = current_price
+            
+            # Calculate returns
+            return_from_entry = (current_price - entry_price) / entry_price
+            drawdown_from_peak = (peak_price - current_price) / peak_price if peak_price > 0 else 0
+            
+            exit_signal = None
+            
+            # Check STOP-LOSS (fixed % from entry)
+            if self.enable_stop_loss and return_from_entry <= -self.stop_loss_pct:
+                exit_signal = {
+                    'ticker': ticker,
+                    'reason': f'Stop-loss triggered: {return_from_entry*100:.1f}% loss',
+                    'exit_type': 'stop_loss',
+                    'return_pct': return_from_entry,
+                    'confidence': 90.0
+                }
+            
+            # Check TAKE-PROFIT (fixed % from entry)
+            elif self.enable_take_profit and return_from_entry >= self.take_profit_pct:
+                exit_signal = {
+                    'ticker': ticker,
+                    'reason': f'Take-profit triggered: +{return_from_entry*100:.1f}% gain',
+                    'exit_type': 'take_profit',
+                    'return_pct': return_from_entry,
+                    'confidence': 95.0
+                }
+            
+            # Check TRAILING STOP (% from peak)
+            elif self.enable_trailing_stop and drawdown_from_peak >= self.trailing_stop_pct:
+                exit_signal = {
+                    'ticker': ticker,
+                    'reason': f'Trailing stop: {drawdown_from_peak*100:.1f}% from peak ${peak_price:.2f}',
+                    'exit_type': 'trailing_stop',
+                    'return_pct': return_from_entry,
+                    'confidence': 85.0
+                }
+            
+            if exit_signal:
+                exit_signals.append(exit_signal)
+        
+        return exit_signals
+    
+    def execute_exit(self, date: datetime, ticker: str, price: float, reason: str, exit_type: str) -> bool:
+        """
+        Execute an exit trade (sell entire position)
+        """
+        if ticker not in self.positions or self.positions[ticker] <= 0:
+            return False
+        
+        shares = self.positions[ticker]
+        details = self.position_details.get(ticker, {})
+        entry_price = details.get('entry_price', price)
+        
+        # Apply slippage
+        slippage = 0.001
+        execution_price = price * (1 - slippage)
+        proceeds = shares * execution_price
+        
+        # Update cash
+        self.cash += proceeds
+        
+        # Calculate P&L
+        cost_basis = shares * entry_price
+        pnl = proceeds - cost_basis
+        return_pct = (execution_price - entry_price) / entry_price if entry_price > 0 else 0
+        
+        # Record trade
+        self.trades.append({
+            'date': date,
+            'ticker': ticker,
+            'action': 'SELL',
+            'shares': shares,
+            'price': execution_price,
+            'proceeds': proceeds,
+            'cash_after': self.cash,
+            'exit_reason': reason,
+            'exit_type': exit_type,
+            'entry_price': entry_price,
+            'pnl': pnl,
+            'return_pct': return_pct
+        })
+        
+        # Log the exit
+        emoji = '🎯' if exit_type == 'take_profit' else '🛑' if exit_type == 'stop_loss' else '📉'
+        print(f"  {emoji} EXIT {shares:,} {ticker} @ ${execution_price:.2f} | {reason} | P&L: ${pnl:+,.2f} ({return_pct*100:+.1f}%)")
+        
+        # Remove position
+        del self.positions[ticker]
+        del self.position_details[ticker]
+        
+        return True
+    
+    # ==================== REBALANCING METHODS ====================
+    
+    def should_rebalance(self, current_date: datetime, current_prices: Dict[str, float]) -> bool:
+        """
+        Determine if rebalancing should occur based on configured frequency.
+        
+        Supported frequencies:
+        - 'never': No rebalancing (buy and hold)
+        - 'weekly': Rebalance every Monday
+        - 'monthly': Rebalance on first trading day of each month
+        - 'quarterly': Rebalance on first trading day of each quarter
+        - 'threshold': Rebalance when any position drifts > threshold from target
+        
+        Returns:
+            True if rebalancing should occur
+        """
+        if self.rebalance_frequency == 'never':
+            return False
+        
+        # For first day, set last_rebalance_date
+        if self.last_rebalance_date is None:
+            self.last_rebalance_date = current_date
+            return False
+        
+        if self.rebalance_frequency == 'weekly':
+            # Rebalance every Monday (weekday 0)
+            return current_date.weekday() == 0 and (current_date - self.last_rebalance_date).days >= 5
+        
+        elif self.rebalance_frequency == 'monthly':
+            # Rebalance on first trading day of new month
+            return current_date.month != self.last_rebalance_date.month or current_date.year != self.last_rebalance_date.year
+        
+        elif self.rebalance_frequency == 'quarterly':
+            # Rebalance on first trading day of new quarter
+            current_quarter = (current_date.month - 1) // 3
+            last_quarter = (self.last_rebalance_date.month - 1) // 3
+            return (current_quarter != last_quarter) or (current_date.year != self.last_rebalance_date.year)
+        
+        elif self.rebalance_frequency == 'threshold':
+            # Check if any position has drifted beyond threshold
+            return self.check_drift_threshold(current_prices)
+        
+        return False
+    
+    def check_drift_threshold(self, current_prices: Dict[str, float]) -> bool:
+        """
+        Check if any position has drifted beyond the configured threshold.
+        
+        Returns:
+            True if any position weight differs from target by > drift_threshold
+        """
+        if not self.positions:
+            return False
+        
+        # Calculate total portfolio value
+        portfolio_value = self.calculate_portfolio_value(datetime.now(), current_prices)
+        if portfolio_value <= 0:
+            return False
+        
+        # Check each position's weight
+        for ticker, shares in self.positions.items():
+            if ticker in current_prices and current_prices[ticker] > 0:
+                position_value = shares * current_prices[ticker]
+                current_weight = position_value / portfolio_value
+                drift = abs(current_weight - self.target_weight)
+                
+                if drift > self.drift_threshold:
+                    print(f"⚖️ Drift detected: {ticker} at {current_weight*100:.1f}% (target: {self.target_weight*100:.0f}%, drift: {drift*100:.1f}%)")
+                    return True
+        
+        return False
+    
+    def calculate_target_allocation(self, current_prices: Dict[str, float]) -> Dict[str, float]:
+        """
+        Calculate the target allocation (equal weight for all positions).
+        
+        Returns:
+            Dict of ticker -> target_shares
+        """
+        if not self.positions:
+            return {}
+        
+        # Calculate total portfolio value
+        portfolio_value = self.calculate_portfolio_value(datetime.now(), current_prices)
+        
+        # Equal weight to all current positions
+        num_positions = len(self.positions)
+        if num_positions == 0:
+            return {}
+        
+        # Cap positions at max, ensure min
+        if num_positions < self.min_positions:
+            print(f"⚠️ Only {num_positions} positions (min: {self.min_positions}) - staying fully invested")
+        
+        # Target weight is either equal-weight or fixed 5%
+        target_weight_per_position = min(self.target_weight, 1.0 / num_positions)
+        target_value_per_position = portfolio_value * target_weight_per_position
+        
+        target_allocation = {}
+        for ticker in self.positions.keys():
+            if ticker in current_prices and current_prices[ticker] > 0:
+                target_shares = target_value_per_position / current_prices[ticker]
+                target_allocation[ticker] = target_shares
+        
+        return target_allocation
+    
+    def execute_rebalancing(self, date: datetime, current_prices: Dict[str, float]) -> List[Dict]:
+        """
+        Execute rebalancing trades to restore target allocation.
+        
+        Returns:
+            List of rebalancing trades executed
+        """
+        rebalance_trades = []
+        
+        if not self.positions:
+            print("⚖️ No positions to rebalance")
+            return rebalance_trades
+        
+        # Calculate target allocation
+        target_allocation = self.calculate_target_allocation(current_prices)
+        
+        if not target_allocation:
+            return rebalance_trades
+        
+        print(f"\n⚖️ REBALANCING on {date.strftime('%Y-%m-%d')}")
+        print(f"   Portfolio positions: {len(self.positions)}")
+        
+        # Calculate trades needed
+        for ticker, target_shares in target_allocation.items():
+            current_shares = self.positions.get(ticker, 0)
+            share_diff = target_shares - current_shares
+            
+            # Apply minimum trade threshold (avoid tiny trades)
+            min_trade_value = 100  # $100 minimum trade
+            if ticker in current_prices:
+                trade_value = abs(share_diff * current_prices[ticker])
+                if trade_value < min_trade_value:
+                    continue
+            
+            if share_diff > 0:
+                # Need to BUY more
+                price = current_prices.get(ticker, 0)
+                if price > 0:
+                    additional_shares = int(share_diff)
+                    if additional_shares > 0:
+                        cost = additional_shares * price
+                        if cost <= self.cash:
+                            self.execute_trade(date, ticker, additional_shares, price, 'BUY')
+                            rebalance_trades.append({
+                                'ticker': ticker,
+                                'action': 'BUY',
+                                'shares': additional_shares,
+                                'price': price,
+                                'reason': 'Rebalance - increase position'
+                            })
+            
+            elif share_diff < 0:
+                # Need to SELL some
+                price = current_prices.get(ticker, 0)
+                if price > 0:
+                    sell_shares = int(abs(share_diff))
+                    if sell_shares > 0 and sell_shares <= current_shares:
+                        self.execute_trade(date, ticker, sell_shares, price, 'SELL')
+                        rebalance_trades.append({
+                            'ticker': ticker,
+                            'action': 'SELL',
+                            'shares': sell_shares,
+                            'price': price,
+                            'reason': 'Rebalance - reduce position'
+                        })
+        
+        # Update last rebalance date
+        self.last_rebalance_date = date
+        self.rebalance_count += 1
+        
+        if rebalance_trades:
+            print(f"   Executed {len(rebalance_trades)} rebalancing trades")
+        else:
+            print(f"   No rebalancing needed (positions within tolerance)")
+        
+        return rebalance_trades
+    
+    # ==================== END REBALANCING METHODS ====================
+    
     def run_backtest(
         self,
         signals: List[Dict],  # [{date, ticker, action, signal_strength}, ...]
         historical_prices: Dict[str, pd.DataFrame],  # {ticker: DataFrame}
         start_date: str,
-        end_date: str
+        end_date: str,
+        exit_config: Dict = None
     ) -> Dict:
         """
-        Run the backtest simulation
+        Run the backtest simulation with exit signals
         
         Args:
             signals: List of trading signals with dates
             historical_prices: Dict of ticker -> price DataFrames
             start_date: Backtest start date
             end_date: Backtest end date
+            exit_config: Optional exit configuration override
             
         Returns:
             Dict with performance metrics
         """
+        # Update exit config if provided
+        if exit_config:
+            self.stop_loss_pct = exit_config.get('stop_loss_pct', self.stop_loss_pct)
+            self.take_profit_pct = exit_config.get('take_profit_pct', self.take_profit_pct)
+            self.trailing_stop_pct = exit_config.get('trailing_stop_pct', self.trailing_stop_pct)
+            self.enable_stop_loss = exit_config.get('enable_stop_loss', self.enable_stop_loss)
+            self.enable_take_profit = exit_config.get('enable_take_profit', self.enable_take_profit)
+            self.enable_trailing_stop = exit_config.get('enable_trailing_stop', self.enable_trailing_stop)
+        
         print(f"\n🎯 Running backtest: {start_date} to {end_date}")
         print(f"💰 Initial capital: ${self.initial_capital:,.2f}")
-        print(f"📊 Signals: {len(signals)}")
+        print(f"📊 Entry signals: {len(signals)}")
+        print(f"🛑 Exit Rules: Stop-Loss={self.stop_loss_pct*100:.0f}% | Take-Profit={self.take_profit_pct*100:.0f}% | Trailing-Stop={self.trailing_stop_pct*100:.0f}%")
+        print(f"⚖️ Rebalancing: {self.rebalance_frequency.upper()} | Target Weight: {self.target_weight*100:.0f}% | Drift Threshold: {self.drift_threshold*100:.0f}%")
         print()
         
         # Convert dates
@@ -247,9 +610,9 @@ class HistoricalBacktestEngine:
                 
                 signal_idx += 1
             
-            # Calculate portfolio value for this date
+            # Calculate current prices for all positions
             current_prices = {}
-            for ticker in self.positions.keys():
+            for ticker in list(self.positions.keys()):
                 if ticker in historical_prices:
                     prices_df = historical_prices[ticker]
                     # Find closest date
@@ -258,13 +621,42 @@ class HistoricalBacktestEngine:
                         closest_date = available_dates[-1]
                         current_prices[ticker] = prices_df.loc[closest_date, 'Close']
             
-            portfolio_value = self.calculate_portfolio_value(date, current_prices)
+            # Check exit signals (stop-loss, take-profit, trailing stop)
+            exit_signals = self.check_exit_signals(date, current_prices)
+            
+            for exit_signal in exit_signals:
+                ticker = exit_signal['ticker']
+                if ticker in current_prices:
+                    self.execute_exit(
+                        date=date,
+                        ticker=ticker,
+                        price=current_prices[ticker],
+                        reason=exit_signal['reason'],
+                        exit_type=exit_signal['exit_type']
+                    )
+            
+            # Check if rebalancing should occur
+            if self.positions and self.should_rebalance(date, current_prices):
+                self.execute_rebalancing(date, current_prices)
+            
+            # Recalculate current prices after exits and rebalancing
+            current_prices_after = {}
+            for ticker in list(self.positions.keys()):
+                if ticker in historical_prices:
+                    prices_df = historical_prices[ticker]
+                    available_dates = prices_df.index[prices_df.index <= date]
+                    if len(available_dates) > 0:
+                        closest_date = available_dates[-1]
+                        current_prices_after[ticker] = prices_df.loc[closest_date, 'Close']
+            
+            portfolio_value = self.calculate_portfolio_value(date, current_prices_after)
             
             self.portfolio_history.append({
                 'date': date,
                 'portfolio_value': portfolio_value,
                 'cash': self.cash,
-                'positions_value': portfolio_value - self.cash
+                'positions_value': portfolio_value - self.cash,
+                'num_positions': len(self.positions)
             })
         
         # Check if we have any portfolio history
@@ -391,6 +783,7 @@ class HistoricalBacktestEngine:
         print(f"   Sharpe:  {sharpe_ratio:.2f}")
         print(f"   Max DD:  {max_drawdown*100:.2f}%")
         print(f"   Trades:  {len(self.trades)}")
+        print(f"   Rebalances: {self.rebalance_count} ({self.rebalance_frequency})")
         print()
         
         return {
@@ -419,6 +812,16 @@ class HistoricalBacktestEngine:
             'total_trades': len(self.trades),
             'portfolio_history': df['portfolio_value'].tolist(),
             'dates': [d.strftime('%Y-%m-%d') for d in df.index],
-            'trades': self.trades
+            'trades': self.trades,
+            # Rebalancing statistics
+            'rebalance_count': self.rebalance_count,
+            'rebalance_frequency': self.rebalance_frequency,
+            'rebalance_config': {
+                'frequency': self.rebalance_frequency,
+                'drift_threshold': self.drift_threshold,
+                'target_weight': self.target_weight,
+                'min_positions': self.min_positions,
+                'max_positions': self.max_positions
+            }
         }
 
