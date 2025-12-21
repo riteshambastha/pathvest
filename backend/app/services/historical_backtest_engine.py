@@ -26,9 +26,12 @@ class HistoricalBacktestEngine:
     """
     
     # Default exit parameters
-    DEFAULT_STOP_LOSS_PCT = 0.10      # 10% stop loss
-    DEFAULT_TAKE_PROFIT_PCT = 0.30    # 30% take profit
-    DEFAULT_TRAILING_STOP_PCT = 0.15  # 15% trailing stop from peak
+    # NOTE: These were too aggressive, limiting upside potential
+    # Previous values: stop_loss=10%, take_profit=30%, trailing_stop=15%
+    # New values allow positions to run longer for higher returns
+    DEFAULT_STOP_LOSS_PCT = 0.20      # 20% stop loss (was 10%)
+    DEFAULT_TAKE_PROFIT_PCT = 0.75    # 75% take profit (was 30%) - let winners run!
+    DEFAULT_TRAILING_STOP_PCT = 0.25  # 25% trailing stop (was 15%) - more room for volatility
     
     # Default rebalancing parameters
     DEFAULT_REBALANCE_FREQUENCY = 'monthly'  # never, weekly, monthly, quarterly, threshold
@@ -52,9 +55,13 @@ class HistoricalBacktestEngine:
         self.stop_loss_pct = self.exit_config.get('stop_loss_pct', self.DEFAULT_STOP_LOSS_PCT)
         self.take_profit_pct = self.exit_config.get('take_profit_pct', self.DEFAULT_TAKE_PROFIT_PCT)
         self.trailing_stop_pct = self.exit_config.get('trailing_stop_pct', self.DEFAULT_TRAILING_STOP_PCT)
+        # Exit rules - defaults changed to allow longer holding periods
+        # Stop-loss: Keep enabled to protect capital
+        # Take-profit: Disabled by default - let winners run!
+        # Trailing-stop: Disabled by default - normal volatility was triggering exits
         self.enable_stop_loss = self.exit_config.get('enable_stop_loss', True)
-        self.enable_take_profit = self.exit_config.get('enable_take_profit', True)
-        self.enable_trailing_stop = self.exit_config.get('enable_trailing_stop', True)
+        self.enable_take_profit = self.exit_config.get('enable_take_profit', False)  # Changed: was True
+        self.enable_trailing_stop = self.exit_config.get('enable_trailing_stop', False)  # Changed: was True
         
         # Rebalancing configuration
         self.rebalance_config = rebalance_config or {}
