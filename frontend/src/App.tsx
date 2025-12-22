@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StrategyWizard from './components/strategy/StrategyWizard';
+import StrategyBuilderBeta from './components/strategy/StrategyBuilderBeta';
 import StrategyLibrary from './components/strategy/StrategyLibrary';
 import BacktestResultsPage from './pages/BacktestResultsPage';
 import MyStrategiesPage from './pages/MyStrategiesPage';
@@ -11,7 +12,7 @@ import LanguageSelector from './components/common/LanguageSelector';
 // Navigation component with active state
 const NavLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => {
   const location = useLocation();
-  const isActive = location.pathname === to || (to === '/builder' && location.pathname === '/');
+  const isActive = location.pathname === to || (to === '/builder-beta' && location.pathname === '/');
   
   return (
     <Link
@@ -44,7 +45,13 @@ const AppContent: React.FC = () => {
                 </Link>
               </div>
               <div className="hidden sm:ml-8 sm:flex sm:space-x-8">
-                <NavLink to="/builder">{t('strategyBuilder')}</NavLink>
+                <NavLink to="/builder-beta">
+                  <span className="flex items-center gap-1.5">
+                    {t('strategyBuilder')}
+                    <span className="text-xs font-semibold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">BETA</span>
+                  </span>
+                </NavLink>
+                <NavLink to="/builder">{t('strategyBuilder')} (Classic)</NavLink>
                 <NavLink to="/my-strategies">{t('strategies')}</NavLink>
                 <NavLink to="/library">Library</NavLink>
               </div>
@@ -61,13 +68,14 @@ const AppContent: React.FC = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
-          <Route path="/" element={<Navigate to="/builder" replace />} />
+          <Route path="/" element={<Navigate to="/builder-beta" replace />} />
+          <Route path="/builder-beta" element={<StrategyBuilderBeta />} />
           <Route path="/builder" element={<StrategyWizard />} />
           <Route path="/my-strategies" element={<MyStrategiesPage />} />
           <Route path="/strategies/:strategyId" element={<StrategyDetailsPage />} />
           <Route path="/library" element={<StrategyLibrary />} />
           <Route path="/results/:backtestId" element={<BacktestResultsPage />} />
-          <Route path="*" element={<Navigate to="/builder" replace />} />
+          <Route path="*" element={<Navigate to="/builder-beta" replace />} />
         </Routes>
       </main>
     </div>
