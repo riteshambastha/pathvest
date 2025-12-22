@@ -71,3 +71,8 @@ black==24.1.1
 flake8==7.0.0
 mypy==1.8.0
 
+
+# Backtesting Engine
+backtrader==1.9.78.123
+yfinance>=0.2.0
+pandas-datareader>=0.10.0

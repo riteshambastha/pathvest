@@ -37,6 +37,15 @@ except ImportError:
     LEAN_ADAPTER_AVAILABLE = False
     LEANAdapter = None
 
+# BacktraderEngine is optional
+try:
+    from app.services.backtrader_engine import BacktraderEngine, get_backtrader_engine
+    BACKTRADER_AVAILABLE = True
+except ImportError:
+    BACKTRADER_AVAILABLE = False
+    BacktraderEngine = None
+    get_backtrader_engine = None
+
 
 class BacktestOrchestrator:
     """
@@ -742,30 +751,76 @@ class BacktestOrchestrator:
                 }
                 print(f"⚖️ Rebalance config: Frequency={rebalance_config['frequency'].upper()} | Drift={rebalance_config['drift_threshold']*100:.0f}%")
 
-                engine = HistoricalBacktestEngine(
-                    initial_capital=strategy_config.get('initial_capital', 100000),
-                    exit_config=exit_config,
-                    rebalance_config=rebalance_config
-                )
-                raw_results = engine.run_backtest(signals, historical_prices, start_date, end_date)
-                
-                # Wrap metrics under 'summary' key for API schema compatibility
-                results = {
-                    'engine': 'custom',
-                    'summary': {k: v for k, v in raw_results.items() if k not in ['portfolio_history', 'dates', 'trades', 'initial_capital', 'final_value', 'total_trades']},
-                    'equity_curve': {
-                        'dates': raw_results.get('dates', []),
-                        'portfolio_values': raw_results.get('portfolio_history', []),
-                        'benchmark_values': []  # Benchmark not implemented yet
-                    },
-                    'trades': raw_results.get('trades', []),
-                    'initial_capital': raw_results.get('initial_capital', 100000),
-                    'final_value': raw_results.get('final_value', 100000),
-                    'execution_time_seconds': 0,  # Will be calculated by API
-                    'api_calls_made': len(tickers) * 2,  # Rough estimate
-                    'sec_filings_fetched': len(signals),
-                    'stocks_analyzed': tickers
-                }
+                # Choose engine based on engine_type
+                if engine_type == 'backtrader' and BACKTRADER_AVAILABLE:
+                    print("🔧 Using Backtrader Engine")
+                    bt_engine = get_backtrader_engine(
+                        initial_capital=strategy_config.get('initial_capital', 100000),
+                        commission=0.001,
+                        slippage=0.0025,
+                    )
+                    raw_results = await bt_engine.run_backtest(
+                        signals=signals,
+                        start_date=start_date,
+                        end_date=end_date,
+                        strategy_config=strategy_config,
+                        price_data=historical_prices,
+                    )
+                    
+                    # Backtrader results are already structured
+                    results = {
+                        'engine': 'backtrader',
+                        'summary': {
+                            'total_return': raw_results.get('total_return', 0),
+                            'sharpe_ratio': raw_results.get('sharpe_ratio', 0),
+                            'max_drawdown': raw_results.get('max_drawdown', 0),
+                            'cagr': raw_results.get('cagr', 0),
+                            'win_rate': raw_results.get('win_rate', 0),
+                            'total_trades': raw_results.get('total_trades', 0),
+                        },
+                        'equity_curve': {
+                            'dates': [p['date'] for p in raw_results.get('portfolio_history', [])],
+                            'portfolio_values': [p['value'] for p in raw_results.get('portfolio_history', [])],
+                            'benchmark_values': []
+                        },
+                        'trades': raw_results.get('trade_log', []),
+                        'initial_capital': raw_results.get('initial_capital', 100000),
+                        'final_value': raw_results.get('final_value', 100000),
+                        'execution_time_seconds': 0,
+                        'api_calls_made': len(tickers) * 2,
+                        'sec_filings_fetched': len(signals),
+                        'stocks_analyzed': raw_results.get('stocks_analyzed', tickers)
+                    }
+                else:
+                    # Use custom HistoricalBacktestEngine (default)
+                    if engine_type == 'backtrader' and not BACKTRADER_AVAILABLE:
+                        print("⚠️ Backtrader not available, falling back to custom engine")
+                    
+                    print("🔧 Using Custom Historical Backtest Engine")
+                    engine = HistoricalBacktestEngine(
+                        initial_capital=strategy_config.get('initial_capital', 100000),
+                        exit_config=exit_config,
+                        rebalance_config=rebalance_config
+                    )
+                    raw_results = engine.run_backtest(signals, historical_prices, start_date, end_date)
+                    
+                    # Wrap metrics under 'summary' key for API schema compatibility
+                    results = {
+                        'engine': 'custom',
+                        'summary': {k: v for k, v in raw_results.items() if k not in ['portfolio_history', 'dates', 'trades', 'initial_capital', 'final_value', 'total_trades']},
+                        'equity_curve': {
+                            'dates': raw_results.get('dates', []),
+                            'portfolio_values': raw_results.get('portfolio_history', []),
+                            'benchmark_values': []  # Benchmark not implemented yet
+                        },
+                        'trades': raw_results.get('trades', []),
+                        'initial_capital': raw_results.get('initial_capital', 100000),
+                        'final_value': raw_results.get('final_value', 100000),
+                        'execution_time_seconds': 0,  # Will be calculated by API
+                        'api_calls_made': len(tickers) * 2,  # Rough estimate
+                        'sec_filings_fetched': len(signals),
+                        'stocks_analyzed': tickers
+                    }
             
             update_progress("Backtest complete!", 100)
             

@@ -75,7 +75,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
               type="radio"
               name="engine"
               value="custom"
-              checked={config.engine_type !== 'lean'}
+              checked={config.engine_type === 'custom' || !config.engine_type}
               onChange={(e) => updateConfig({ engine_type: 'custom' })}
               className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
             />
@@ -93,14 +93,34 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
             <input
               type="radio"
               name="engine"
-              value="lean"
-              checked={config.engine_type === 'lean'}
-              onChange={(e) => updateConfig({ engine_type: 'lean' })}
+              value="backtrader"
+              checked={config.engine_type === 'backtrader'}
+              onChange={(e) => updateConfig({ engine_type: 'backtrader' })}
               className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
             />
             <div className="ml-3">
               <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                LEAN Engine (QuantConnect) <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">Pro</span>
+                Backtrader Engine <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">New</span>
+              </div>
+              <div className="text-xs text-gray-600 mt-0.5">
+                Industry-standard • YFinance data • Full Python ecosystem • Technical indicators built-in
+              </div>
+            </div>
+          </label>
+          
+          <label className="flex items-start cursor-pointer group opacity-60">
+            <input
+              type="radio"
+              name="engine"
+              value="lean"
+              checked={config.engine_type === 'lean'}
+              onChange={(e) => updateConfig({ engine_type: 'lean' })}
+              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+              disabled
+            />
+            <div className="ml-3">
+              <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
+                LEAN Engine (QuantConnect) <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">Pro</span> <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Coming Soon</span>
               </div>
               <div className="text-xs text-gray-600 mt-0.5">
                 Production-grade • Advanced features • Fractional shares • Live trading ready
