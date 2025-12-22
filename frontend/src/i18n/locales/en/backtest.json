@@ -1,0 +1,105 @@
+{
+  "title": "Backtest Results",
+  "status": {
+    "queued": "Queued",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "progress": {
+    "initializing": "Initializing backtest...",
+    "fetchingSEC": "Fetching SEC data...",
+    "analyzingSignals": "Analyzing signals...",
+    "runningBacktest": "Running backtest engine...",
+    "finalizing": "Finalizing results...",
+    "complete": "Backtest complete!",
+    "processingStocks": "Processing {{current}} of {{total}} stocks",
+    "eta": "Estimated time remaining",
+    "breakSuggestions": {
+      "walk": "Take a short walk!",
+      "chai": "Time for chai!",
+      "coffee": "Perfect for a coffee!",
+      "snack": "Quick snack break?",
+      "almostThere": "Almost there!"
+    }
+  },
+  "tabs": {
+    "summary": "Summary",
+    "overview": "Overview",
+    "trades": "Trades",
+    "attribution": "Attribution",
+    "validation": "Validation",
+    "export": "Export"
+  },
+  "metrics": {
+    "totalReturn": "Total Return",
+    "cagr": "CAGR",
+    "sharpeRatio": "Sharpe Ratio",
+    "sortinoRatio": "Sortino Ratio",
+    "maxDrawdown": "Max Drawdown",
+    "volatility": "Volatility",
+    "alpha": "Alpha",
+    "beta": "Beta",
+    "winRate": "Win Rate",
+    "totalTrades": "Total Trades",
+    "profitFactor": "Profit Factor",
+    "benchmarkReturn": "Benchmark Return"
+  },
+  "summary": {
+    "executiveSummary": "Executive Summary",
+    "keyInsight": "Key Insight",
+    "strongPerformance": "Strong performance",
+    "goodRiskAdjusted": "Good risk-adjusted returns",
+    "stableStrategy": "Stable strategy",
+    "considerRefining": "Consider refining strategy",
+    "stocksAnalyzed": "stocks analyzed"
+  },
+  "trades": {
+    "title": "Trade Log",
+    "totalTrades": "Total Trades",
+    "winningTrades": "Winning Trades",
+    "losingTrades": "Losing Trades",
+    "winRate": "Win Rate",
+    "totalPnL": "Total P&L",
+    "columns": {
+      "ticker": "Ticker",
+      "type": "Type",
+      "entryDate": "Entry Date",
+      "entryPrice": "Entry Price",
+      "exitDate": "Exit Date",
+      "exitPrice": "Exit Price",
+      "shares": "Shares",
+      "pnl": "P&L",
+      "return": "Return %",
+      "holdingPeriod": "Holding Period",
+      "exitReason": "Exit Reason",
+      "conviction": "Conviction"
+    },
+    "exitReasons": {
+      "stopLoss": "Stop Loss",
+      "takeProfit": "Take Profit",
+      "trailingStop": "Trailing Stop",
+      "thesisDrift": "Thesis Drift",
+      "insiderReversal": "Insider Reversal",
+      "deadMoney": "Dead Money",
+      "endOfPeriod": "End of Period"
+    }
+  },
+  "equityCurve": {
+    "title": "Equity Curve",
+    "portfolio": "Portfolio",
+    "benchmark": "Benchmark (SPY)"
+  },
+  "noData": {
+    "title": "No Trading Data Found",
+    "description": "The backtest completed but no trades were executed.",
+    "suggestions": {
+      "title": "Troubleshooting suggestions:",
+      "checkDateRange": "Check that your date range has sufficient SEC filings",
+      "selectMoreInstitutions": "Select more institutions in Step 2",
+      "relaxFilters": "Relax your universe filters",
+      "checkApiKey": "Verify your AlphaVantage API key is working"
+    }
+  }
+}
+

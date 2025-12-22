@@ -3,7 +3,9 @@
  */
 
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../context/authStore'
+import LanguageSelector from './common/LanguageSelector'
 
 // Simple SVG icon components
 const HomeIcon = () => (
@@ -24,6 +26,7 @@ const LogoutIcon = () => (
 
 export default function Navbar() {
   const { isAuthenticated, user, clearAuth } = useAuthStore()
+  const { t } = useTranslation('nav')
 
   const handleLogout = () => {
     clearAuth()
@@ -46,27 +49,30 @@ export default function Navbar() {
                   className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   <HomeIcon />
-                  <span>Dashboard</span>
+                  <span>{t('dashboard')}</span>
                 </Link>
                 <Link
                   to="/portfolios"
                   className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   <ChartIcon />
-                  <span>Portfolios</span>
+                  <span>{t('portfolios')}</span>
                 </Link>
                 <Link
                   to="/sec"
                   className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   <FileIcon />
-                  <span>SEC Explorer</span>
+                  <span>{t('secExplorer')}</span>
                 </Link>
               </div>
             )}
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Language Selector */}
+            <LanguageSelector />
+
             {isAuthenticated ? (
               <>
                 <div className="flex items-center space-x-2 text-gray-700">
@@ -78,7 +84,7 @@ export default function Navbar() {
                   className="flex items-center space-x-1 text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   <LogoutIcon />
-                  <span>Logout</span>
+                  <span>{t('common:logout')}</span>
                 </button>
               </>
             ) : (
@@ -87,13 +93,13 @@ export default function Navbar() {
                   to="/login"
                   className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
                 >
-                  Login
+                  {t('common:login')}
                 </Link>
                 <Link
                   to="/register"
                   className="bg-primary-600 text-white hover:bg-primary-700 px-4 py-2 rounded-md text-sm font-medium"
                 >
-                  Sign Up
+                  {t('common:register')}
                 </Link>
               </>
             )}
@@ -103,4 +109,3 @@ export default function Navbar() {
     </nav>
   )
 }
-

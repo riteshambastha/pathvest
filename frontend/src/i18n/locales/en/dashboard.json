@@ -1,0 +1,35 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welcome to Pathvest",
+  "subtitle": "Your institutional-grade investment strategy platform",
+  "quickActions": {
+    "title": "Quick Actions",
+    "createStrategy": "Create New Strategy",
+    "viewStrategies": "View My Strategies",
+    "exploreSEC": "Explore SEC Filings"
+  },
+  "recentStrategies": {
+    "title": "Recent Strategies",
+    "noStrategies": "No strategies yet",
+    "createFirst": "Create your first strategy to get started"
+  },
+  "performance": {
+    "title": "Portfolio Performance",
+    "totalValue": "Total Value",
+    "totalReturn": "Total Return",
+    "todayChange": "Today's Change"
+  },
+  "marketInsights": {
+    "title": "Market Insights",
+    "topInstitutions": "Top Institutions Activity",
+    "recentFilings": "Recent 13F Filings",
+    "insiderActivity": "Insider Trading Activity"
+  },
+  "stats": {
+    "activeStrategies": "Active Strategies",
+    "totalBacktests": "Total Backtests",
+    "avgReturn": "Avg. Return",
+    "bestStrategy": "Best Strategy"
+  }
+}
+

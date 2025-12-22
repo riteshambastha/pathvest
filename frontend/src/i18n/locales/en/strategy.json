@@ -1,0 +1,112 @@
+{
+  "title": "Strategy Builder",
+  "subtitle": "Build your institutional-grade investment strategy",
+  "steps": {
+    "step1": {
+      "title": "Strategy Setup",
+      "description": "Configure basic strategy parameters: name, backtest period, and initial capital"
+    },
+    "step2": {
+      "title": "Stock Selection",
+      "description": "Define the universe of stocks and institutions to consider"
+    },
+    "step3": {
+      "title": "Entry & Position Sizing",
+      "description": "Configure how your strategy identifies entry points and allocates capital"
+    },
+    "step4": {
+      "title": "Entry Scheduling",
+      "description": "Define when and how your strategy executes trades based on signals"
+    },
+    "step5": {
+      "title": "Exit Model",
+      "description": "Set up exit rules and stop-loss parameters"
+    },
+    "step6": {
+      "title": "Risk Management",
+      "description": "Configure risk controls and portfolio limits"
+    },
+    "step7": {
+      "title": "Parameters",
+      "description": "Fine-tune conviction scoring and technical parameters"
+    },
+    "step8": {
+      "title": "Review & Backtest",
+      "description": "Review your configuration and run the backtest"
+    }
+  },
+  "labels": {
+    "strategyName": "Strategy Name",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "initialCapital": "Initial Capital",
+    "maxPositions": "Maximum Positions",
+    "marketCapMin": "Market Cap Min",
+    "lookbackQuarters": "Lookback Quarters",
+    "selectInstitutions": "Select Institutions",
+    "searchInstitutions": "Search institutions by name or CIK..."
+  },
+  "engine": {
+    "title": "Backtesting Engine",
+    "custom": {
+      "name": "Custom Engine",
+      "tag": "Fast",
+      "description": "Optimized for PathVest • Real historical data • 2-3 min execution"
+    },
+    "backtrader": {
+      "name": "Backtrader Engine",
+      "tag": "New",
+      "description": "Industry-standard • YFinance data • Full Python ecosystem"
+    },
+    "lean": {
+      "name": "LEAN Engine",
+      "tag": "Pro",
+      "description": "Production-grade • Advanced features • Live trading ready"
+    }
+  },
+  "signals": {
+    "title": "Entry Signals",
+    "doublingDown": {
+      "name": "Doubling Down Signal",
+      "description": "Enter when an institution significantly increases its existing holding"
+    },
+    "insiderBuying": {
+      "name": "Insider Buying Signal",
+      "description": "Enter when qualified insiders make significant open-market purchases"
+    },
+    "herding": {
+      "name": "Institutional Herding Signal",
+      "description": "Enter when multiple institutions initiate or increase positions"
+    },
+    "technicalConfirmation": {
+      "name": "Technical Confirmation",
+      "description": "Apply technical filters to confirm fundamental signals"
+    }
+  },
+  "positionSizing": {
+    "title": "Position Sizing",
+    "method": "Method",
+    "static": "Static Percentage",
+    "dynamic": "Dynamic (based on conviction)",
+    "percentPerPosition": "Percent per Position",
+    "minPositions": "Minimum Positions",
+    "maxPositions": "Maximum Positions",
+    "rankBuffer": "Replacement Protocol Rank Buffer"
+  },
+  "exitRules": {
+    "title": "Exit Rules",
+    "thesisDrift": "Thesis Drift",
+    "insiderReversal": "Insider Reversal",
+    "trailingStop": "Trailing Stop",
+    "deadMoney": "Dead Money Rule"
+  },
+  "review": {
+    "title": "Review Configuration",
+    "runBacktest": "Run Backtest",
+    "running": "Running Backtest...",
+    "estimatedTime": "Estimated time"
+  },
+  "selected": "selected",
+  "institutions": "institutions"
+}
+

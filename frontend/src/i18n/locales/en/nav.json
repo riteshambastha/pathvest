@@ -1,0 +1,18 @@
+{
+  "home": "Home",
+  "dashboard": "Dashboard",
+  "strategies": "My Strategies",
+  "strategyBuilder": "Strategy Builder",
+  "portfolios": "Portfolios",
+  "secExplorer": "SEC Explorer",
+  "results": "Results",
+  "createStrategy": "Create Strategy",
+  "viewAllStrategies": "View All Strategies",
+  "menu": {
+    "title": "Menu",
+    "account": "Account",
+    "notifications": "Notifications",
+    "language": "Language"
+  }
+}
+

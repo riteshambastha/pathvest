@@ -1,0 +1,35 @@
+{
+  "title": "ડેશબોર્ડ",
+  "welcome": "પાથવેસ્ટમાં સ્વાગત છે",
+  "subtitle": "તમારું સંસ્થાકીય-ગ્રેડ રોકાણ વ્યૂહરચના પ્લેટફોર્મ",
+  "quickActions": {
+    "title": "ઝડપી ક્રિયાઓ",
+    "createStrategy": "નવી વ્યૂહરચના બનાવો",
+    "viewStrategies": "મારી વ્યૂહરચનાઓ જુઓ",
+    "exploreSEC": "SEC ફાઇલિંગ્સ જુઓ"
+  },
+  "recentStrategies": {
+    "title": "તાજેતરની વ્યૂહરચનાઓ",
+    "noStrategies": "હજી સુધી કોઈ વ્યૂહરચના નથી",
+    "createFirst": "શરૂ કરવા માટે તમારી પ્રથમ વ્યૂહરચના બનાવો"
+  },
+  "performance": {
+    "title": "પોર્ટફોલિયો પ્રદર્શન",
+    "totalValue": "કુલ મૂલ્ય",
+    "totalReturn": "કુલ વળતર",
+    "todayChange": "આજનો ફેરફાર"
+  },
+  "marketInsights": {
+    "title": "બજાર આંતરદૃષ્ટિ",
+    "topInstitutions": "ટોચની સંસ્થાઓની પ્રવૃત્તિ",
+    "recentFilings": "તાજેતરની 13F ફાઇલિંગ્સ",
+    "insiderActivity": "ઇન્સાઇડર ટ્રેડિંગ પ્રવૃત્તિ"
+  },
+  "stats": {
+    "activeStrategies": "સક્રિય વ્યૂહરચનાઓ",
+    "totalBacktests": "કુલ બેકટેસ્ટ્સ",
+    "avgReturn": "સરેરાશ વળતર",
+    "bestStrategy": "શ્રેષ્ઠ વ્યૂહરચના"
+  }
+}
+

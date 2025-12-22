@@ -1,0 +1,18 @@
+{
+  "home": "હોમ",
+  "dashboard": "ડેશબોર્ડ",
+  "strategies": "મારી વ્યૂહરચનાઓ",
+  "strategyBuilder": "વ્યૂહરચના બિલ્ડર",
+  "portfolios": "પોર્ટફોલિયો",
+  "secExplorer": "SEC એક્સપ્લોરર",
+  "results": "પરિણામો",
+  "createStrategy": "વ્યૂહરચના બનાવો",
+  "viewAllStrategies": "બધી વ્યૂહરચનાઓ જુઓ",
+  "menu": {
+    "title": "મેનુ",
+    "account": "એકાઉન્ટ",
+    "notifications": "સૂચનાઓ",
+    "language": "ભાષા"
+  }
+}
+

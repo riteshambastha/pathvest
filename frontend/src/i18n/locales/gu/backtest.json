@@ -1,0 +1,105 @@
+{
+  "title": "બેકટેસ્ટ પરિણામો",
+  "status": {
+    "queued": "કતારમાં",
+    "running": "ચાલી રહ્યું છે",
+    "completed": "પૂર્ણ",
+    "failed": "નિષ્ફળ"
+  },
+  "progress": {
+    "initializing": "બેકટેસ્ટ શરૂ થઈ રહ્યું છે...",
+    "fetchingSEC": "SEC ડેટા મેળવી રહ્યા છીએ...",
+    "analyzingSignals": "સિગ્નલ્સનું વિશ્લેષણ કરી રહ્યા છીએ...",
+    "runningBacktest": "બેકટેસ્ટ એન્જિન ચલાવી રહ્યા છીએ...",
+    "finalizing": "પરિણામો અંતિમ કરી રહ્યા છીએ...",
+    "complete": "બેકટેસ્ટ પૂર્ણ!",
+    "processingStocks": "{{total}} માંથી {{current}} સ્ટોક્સ પ્રોસેસ થઈ રહ્યા છે",
+    "eta": "અંદાજિત બાકી સમય",
+    "breakSuggestions": {
+      "walk": "થોડું ચાલો!",
+      "chai": "ચા નો સમય!",
+      "coffee": "કોફી માટે યોગ્ય!",
+      "snack": "ઝડપી નાસ્તો?",
+      "almostThere": "લગભગ થઈ ગયું!"
+    }
+  },
+  "tabs": {
+    "summary": "સારાંશ",
+    "overview": "ઓવરવ્યૂ",
+    "trades": "ટ્રેડ્સ",
+    "attribution": "એટ્રિબ્યુશન",
+    "validation": "વેલિડેશન",
+    "export": "નિકાસ"
+  },
+  "metrics": {
+    "totalReturn": "કુલ વળતર",
+    "cagr": "CAGR",
+    "sharpeRatio": "શાર્પ રેશિયો",
+    "sortinoRatio": "સોર્ટિનો રેશિયો",
+    "maxDrawdown": "મહત્તમ ડ્રોડાઉન",
+    "volatility": "અસ્થિરતા",
+    "alpha": "આલ્ફા",
+    "beta": "બીટા",
+    "winRate": "જીત દર",
+    "totalTrades": "કુલ ટ્રેડ્સ",
+    "profitFactor": "પ્રોફિટ ફેક્ટર",
+    "benchmarkReturn": "બેન્ચમાર્ક વળતર"
+  },
+  "summary": {
+    "executiveSummary": "એક્ઝિક્યુટિવ સારાંશ",
+    "keyInsight": "મુખ્ય આંતરદૃષ્ટિ",
+    "strongPerformance": "મજબૂત પ્રદર્શન",
+    "goodRiskAdjusted": "સારું જોખમ-સમાયોજિત વળતર",
+    "stableStrategy": "સ્થિર વ્યૂહરચના",
+    "considerRefining": "વ્યૂહરચના રિફાઇન કરવાનું વિચારો",
+    "stocksAnalyzed": "સ્ટોક્સનું વિશ્લેષણ"
+  },
+  "trades": {
+    "title": "ટ્રેડ લોગ",
+    "totalTrades": "કુલ ટ્રેડ્સ",
+    "winningTrades": "જીતેલા ટ્રેડ્સ",
+    "losingTrades": "હારેલા ટ્રેડ્સ",
+    "winRate": "જીત દર",
+    "totalPnL": "કુલ નફો/ખોટ",
+    "columns": {
+      "ticker": "ટિકર",
+      "type": "પ્રકાર",
+      "entryDate": "એન્ટ્રી તારીખ",
+      "entryPrice": "એન્ટ્રી કિંમત",
+      "exitDate": "એક્ઝિટ તારીખ",
+      "exitPrice": "એક્ઝિટ કિંમત",
+      "shares": "શેર્સ",
+      "pnl": "નફો/ખોટ",
+      "return": "વળતર %",
+      "holdingPeriod": "હોલ્ડિંગ સમયગાળો",
+      "exitReason": "એક્ઝિટ કારણ",
+      "conviction": "કન્વિક્શન"
+    },
+    "exitReasons": {
+      "stopLoss": "સ્ટોપ લોસ",
+      "takeProfit": "ટેક પ્રોફિટ",
+      "trailingStop": "ટ્રેલિંગ સ્ટોપ",
+      "thesisDrift": "થીસિસ ડ્રિફ્ટ",
+      "insiderReversal": "ઇન્સાઇડર રિવર્સલ",
+      "deadMoney": "ડેડ મની",
+      "endOfPeriod": "સમયગાળાનો અંત"
+    }
+  },
+  "equityCurve": {
+    "title": "ઇક્વિટી કર્વ",
+    "portfolio": "પોર્ટફોલિયો",
+    "benchmark": "બેન્ચમાર્ક (SPY)"
+  },
+  "noData": {
+    "title": "કોઈ ટ્રેડિંગ ડેટા મળ્યો નથી",
+    "description": "બેકટેસ્ટ પૂર્ણ થયું પણ કોઈ ટ્રેડ્સ એક્ઝિક્યુટ થયા નથી.",
+    "suggestions": {
+      "title": "સમસ્યા નિવારણ સૂચનો:",
+      "checkDateRange": "તમારી તારીખ શ્રેણીમાં પૂરતી SEC ફાઇલિંગ્સ છે કે તપાસો",
+      "selectMoreInstitutions": "સ્ટેપ 2 માં વધુ સંસ્થાઓ પસંદ કરો",
+      "relaxFilters": "તમારા યુનિવર્સ ફિલ્ટર્સ હળવા કરો",
+      "checkApiKey": "તમારી AlphaVantage API કી કામ કરી રહી છે તે ચકાસો"
+    }
+  }
+}
+
