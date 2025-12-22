@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -11,6 +12,7 @@ interface StepProps {
 }
 
 const Step4_EntryScheduling: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const entryRules = config.entry_rules || {
     timing: 'immediate',
@@ -35,9 +37,9 @@ const Step4_EntryScheduling: React.FC<StepProps> = ({ config, updateConfig, next
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Entry Scheduling</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step4.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Define when and how to enter positions after signals are generated
+            {t('steps.step4.description')}
           </p>
         </div>
         <button

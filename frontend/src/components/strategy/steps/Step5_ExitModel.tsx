@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -11,6 +12,7 @@ interface StepProps {
 }
 
 const Step5_ExitModel: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const exitRules = config.exit_rules || {
     thesis_drift_enabled: true,
@@ -40,9 +42,9 @@ const Step5_ExitModel: React.FC<StepProps> = ({ config, updateConfig, nextStep, 
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Exit Model</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step5.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Configure when and how to exit positions (4 modules per SRS specification)
+            {t('steps.step5.description')}
           </p>
         </div>
         <button

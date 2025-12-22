@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -20,6 +21,7 @@ interface Institution {
 }
 
 const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitutions, setSelectedInstitutions] = useState<string[]>(
     config.sub_universe_filters?.selected_institutions || []
@@ -109,9 +111,9 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Stock Selection Model</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step2.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Select institutions to follow and define filters to identify qualified stocks
+            {t('steps.step2.description')}
           </p>
         </div>
         <button
@@ -122,7 +124,7 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
           <svg className="h-5 w-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="font-medium">Help</span>
+          <span className="font-medium">{t('common:help')}</span>
         </button>
       </div>
 
@@ -130,7 +132,7 @@ const Step2_StockSelection: React.FC<StepProps> = ({ config, updateConfig, nextS
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-blue-200">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">🏦 Select Institutions to Follow</h3>
+            <h3 className="text-lg font-semibold text-gray-900">🏦 {t('labels.selectInstitutions')}</h3>
             <p className="text-sm text-gray-600 mt-1">
               Choose institutional investors whose 13F filings you want to track
             </p>

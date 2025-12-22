@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -18,6 +19,7 @@ interface DateRange {
 }
 
 const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [loading, setLoading] = useState(true);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -42,14 +44,15 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
         setLoading(false);
       });
   }, []);
+
   return (
     <div className="space-y-6">
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Strategy Setup</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step1.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Configure basic strategy parameters: name, backtest period, and initial capital
+            {t('steps.step1.description')}
           </p>
         </div>
         <button
@@ -60,14 +63,14 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
           <svg className="h-5 w-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="font-medium">Help</span>
+          <span className="font-medium">{t('common:help')}</span>
         </button>
       </div>
 
       {/* Engine Selection */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
         <label className="block text-sm font-semibold text-gray-900 mb-3">
-          Backtesting Engine
+          {t('engine.title')}
         </label>
         <div className="space-y-3">
           <label className="flex items-start cursor-pointer group">
@@ -81,10 +84,10 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
             />
             <div className="ml-3">
               <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                Custom Engine <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Fast</span>
+                {t('engine.custom.name')} <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">{t('engine.custom.tag')}</span>
               </div>
               <div className="text-xs text-gray-600 mt-0.5">
-                Optimized for PathVest • Real historical data • 2-3 min execution • Easier to debug
+                {t('engine.custom.description')}
               </div>
             </div>
           </label>
@@ -100,10 +103,10 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
             />
             <div className="ml-3">
               <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                Backtrader Engine <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">New</span>
+                {t('engine.backtrader.name')} <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">{t('engine.backtrader.tag')}</span>
               </div>
               <div className="text-xs text-gray-600 mt-0.5">
-                Industry-standard • YFinance data • Full Python ecosystem • Technical indicators built-in
+                {t('engine.backtrader.description')}
               </div>
             </div>
           </label>
@@ -120,10 +123,10 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
             />
             <div className="ml-3">
               <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                LEAN Engine (QuantConnect) <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">Pro</span> <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Coming Soon</span>
+                {t('engine.lean.name')} <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">{t('engine.lean.tag')}</span> <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Coming Soon</span>
               </div>
               <div className="text-xs text-gray-600 mt-0.5">
-                Production-grade • Advanced features • Fractional shares • Live trading ready
+                {t('engine.lean.description')}
               </div>
             </div>
           </label>
@@ -134,7 +137,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
         {/* Strategy Name */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Strategy Name
+            {t('labels.strategyName')}
           </label>
           <input
             type="text"
@@ -150,7 +153,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
             <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
-              Start Date
+              {t('labels.startDate')}
             </label>
             <input
               type="date"
@@ -178,7 +181,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
 
           <div>
             <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
-              End Date
+              {t('labels.endDate')}
             </label>
             <input
               type="date"
@@ -208,7 +211,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
         {/* Initial Capital */}
         <div>
           <label htmlFor="initial_capital" className="block text-sm font-medium text-gray-700">
-            Initial Capital ($)
+            {t('labels.initialCapital')} ($)
           </label>
           <input
             type="number"
@@ -227,7 +230,7 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
         {/* Maximum Positions */}
         <div>
           <label htmlFor="max_positions" className="block text-sm font-medium text-gray-700">
-            Maximum Positions
+            {t('labels.maxPositions')}
           </label>
           <input
             type="number"
@@ -305,4 +308,3 @@ const Step1_Setup: React.FC<StepProps> = ({ config, updateConfig, nextStep }) =>
 };
 
 export default Step1_Setup;
-

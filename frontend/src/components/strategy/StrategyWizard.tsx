@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Step1_Setup from './steps/Step1_Setup';
 import Step2_StockSelection from './steps/Step2_StockSelection';
 import Step3_EntryPositionSizing from './steps/Step3_EntryPositionSizing';
@@ -158,19 +159,21 @@ export interface StrategyConfig {
   };
 }
 
-const steps = [
-  { number: 1, name: 'Strategy Setup', description: 'Name, period, and capital' },
-  { number: 2, name: 'Stock Selection', description: 'Universe and sub-universe filters' },
-  { number: 3, name: 'Entry & Position Sizing', description: 'Signals and allocation' },
-  { number: 4, name: 'Entry Scheduling', description: 'Rebalancing frequency' },
-  { number: 5, name: 'Exit Model', description: '4 exit modules' },
-  { number: 6, name: 'Risk Management', description: 'Transaction costs' },
-  { number: 7, name: 'Parameters', description: 'Benchmark and validation' },
-  { number: 8, name: 'Review & Backtest', description: 'Review and execute' },
-];
-
 const StrategyWizard: React.FC = () => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // Translated step names
+  const steps = [
+    { number: 1, name: t('stepNames.step1'), description: t('stepDescriptions.step1') },
+    { number: 2, name: t('stepNames.step2'), description: t('stepDescriptions.step2') },
+    { number: 3, name: t('stepNames.step3'), description: t('stepDescriptions.step3') },
+    { number: 4, name: t('stepNames.step4'), description: t('stepDescriptions.step4') },
+    { number: 5, name: t('stepNames.step5'), description: t('stepDescriptions.step5') },
+    { number: 6, name: t('stepNames.step6'), description: t('stepDescriptions.step6') },
+    { number: 7, name: t('stepNames.step7'), description: t('stepDescriptions.step7') },
+    { number: 8, name: t('stepNames.step8'), description: t('stepDescriptions.step8') },
+  ];
   const [config, setConfig] = useState<StrategyConfig>({
     name: 'My Strategy',
     backtest_period: {
@@ -392,7 +395,7 @@ const StrategyWizard: React.FC = () => {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Previous
+              {t('navigation.previous')}
             </button>
           )}
         </div>
@@ -405,7 +408,7 @@ const StrategyWizard: React.FC = () => {
               onClick={nextStep}
               className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
             >
-              Next
+              {t('navigation.next')}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>

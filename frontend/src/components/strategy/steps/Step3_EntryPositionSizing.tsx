@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -11,6 +12,7 @@ interface StepProps {
 }
 
 const Step3_EntryPositionSizing: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const positionSizing = config.position_sizing || {
     method: 'equal_weight',
@@ -43,9 +45,9 @@ const Step3_EntryPositionSizing: React.FC<StepProps> = ({ config, updateConfig, 
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Entry & Position Sizing</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step3.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Define how to size positions and allocate capital across stocks
+            {t('steps.step3.description')}
           </p>
         </div>
         <button

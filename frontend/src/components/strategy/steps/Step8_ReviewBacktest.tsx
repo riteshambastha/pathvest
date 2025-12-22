@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -12,6 +13,7 @@ interface StepProps {
 }
 
 const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
+  const { t } = useTranslation(['strategy', 'common', 'backtest']);
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,9 +73,9 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Review & Run Backtest</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step8.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Review your strategy configuration and start the backtest
+            {t('steps.step8.description')}
           </p>
         </div>
         <button

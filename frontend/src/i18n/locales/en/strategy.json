@@ -1,38 +1,58 @@
 {
   "title": "Strategy Builder",
   "subtitle": "Build your institutional-grade investment strategy",
+  "stepNames": {
+    "step1": "Strategy Setup",
+    "step2": "Stock Selection",
+    "step3": "Entry & Position Sizing",
+    "step4": "Entry Scheduling",
+    "step5": "Exit Model",
+    "step6": "Risk Management",
+    "step7": "Parameters",
+    "step8": "Review & Backtest"
+  },
+  "stepDescriptions": {
+    "step1": "Name, period, and capital",
+    "step2": "Universe and sub-universe filters",
+    "step3": "Signals and allocation",
+    "step4": "Rebalancing frequency",
+    "step5": "4 exit modules",
+    "step6": "Transaction costs",
+    "step7": "Benchmark and validation",
+    "step8": "Review and execute"
+  },
   "steps": {
     "step1": {
       "title": "Strategy Setup",
       "description": "Configure basic strategy parameters: name, backtest period, and initial capital"
     },
     "step2": {
-      "title": "Stock Selection",
-      "description": "Define the universe of stocks and institutions to consider"
+      "title": "Stock Selection Model",
+      "description": "Select institutions to follow and define filters to identify qualified stocks"
     },
     "step3": {
       "title": "Entry & Position Sizing",
-      "description": "Configure how your strategy identifies entry points and allocates capital"
+      "description": "Define how to size positions and allocate capital across stocks"
     },
     "step4": {
       "title": "Entry Scheduling",
-      "description": "Define when and how your strategy executes trades based on signals"
+      "description": "Define when and how to enter positions after signals are generated"
     },
     "step5": {
       "title": "Exit Model",
-      "description": "Set up exit rules and stop-loss parameters"
+      "description": "Configure when and how to exit positions (4 modules per SRS specification)"
     },
     "step6": {
       "title": "Risk Management",
-      "description": "Configure risk controls and portfolio limits"
+      "description": "Configure portfolio-level risk controls and diversification rules"
     },
     "step7": {
-      "title": "Parameters",
-      "description": "Fine-tune conviction scoring and technical parameters"
+      "title": "Advanced Parameters",
+      "description": "Fine-tune transaction costs, technical indicators, and other advanced settings"
     },
     "step8": {
-      "title": "Review & Backtest",
-      "description": "Review your configuration and run the backtest"
+      "title": "Review & Run Backtest",
+      "description": "Review your strategy configuration and start the backtest"
     }
   },
   "labels": {
@@ -43,7 +63,7 @@
     "maxPositions": "Maximum Positions",
     "marketCapMin": "Market Cap Min",
     "lookbackQuarters": "Lookback Quarters",
-    "selectInstitutions": "Select Institutions",
+    "selectInstitutions": "Select Institutions to Follow",
     "searchInstitutions": "Search institutions by name or CIK..."
   },
   "engine": {
@@ -51,17 +71,17 @@
     "custom": {
       "name": "Custom Engine",
       "tag": "Fast",
-      "description": "Optimized for PathVest • Real historical data • 2-3 min execution"
+      "description": "Optimized for PathVest • Real historical data • 2-3 min execution • Easier to debug"
     },
     "backtrader": {
       "name": "Backtrader Engine",
       "tag": "New",
-      "description": "Industry-standard • YFinance data • Full Python ecosystem"
+      "description": "Industry-standard • YFinance data • Full Python ecosystem • Technical indicators built-in"
     },
     "lean": {
-      "name": "LEAN Engine",
+      "name": "LEAN Engine (QuantConnect)",
       "tag": "Pro",
-      "description": "Production-grade • Advanced features • Live trading ready"
+      "description": "Production-grade • Advanced features • Fractional shares • Live trading ready"
     }
   },
   "signals": {
@@ -106,7 +126,11 @@
     "running": "Running Backtest...",
     "estimatedTime": "Estimated time"
   },
+  "navigation": {
+    "previous": "Previous",
+    "next": "Next",
+    "runBacktest": "Run Backtest"
+  },
   "selected": "selected",
   "institutions": "institutions"
 }
-

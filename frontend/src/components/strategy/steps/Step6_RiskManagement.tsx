@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StrategyConfig } from '../StrategyWizard';
 import HelpPanel from '../../common/HelpPanel';
 import { stepHelpContent } from '../helpContent';
@@ -11,6 +12,7 @@ interface StepProps {
 }
 
 const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextStep, prevStep }) => {
+  const { t } = useTranslation(['strategy', 'common']);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const riskManagement = config.risk_management || {
     max_portfolio_drawdown: 0.20,
@@ -37,9 +39,9 @@ const Step6_RiskManagement: React.FC<StepProps> = ({ config, updateConfig, nextS
       {/* Header with Help Button */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Risk Management</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('steps.step6.title')}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Configure portfolio-level risk controls and diversification rules
+            {t('steps.step6.description')}
           </p>
         </div>
         <button
