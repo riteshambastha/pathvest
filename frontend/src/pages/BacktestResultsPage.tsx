@@ -254,62 +254,113 @@ const BacktestResultsPage: React.FC = () => {
     const progress = (results as any)?.progress || null;
     const progressPercent = progress?.percent || 0;
     const statusMessage = progress?.message || results?.status || 'Starting backtest...';
+    const etaMessage = progress?.eta_message || null;
+    const etaSeconds = progress?.eta_seconds || null;
+    const processedCount = progress?.processed || 0;
+    const totalCount = progress?.total || 0;
+    const completedCount = progress?.completed || 0;
+    const failedCount = progress?.failed || 0;
+    const currentTicker = progress?.current_ticker || progress?.current_stock || null;
+    const failedTickers = progress?.failed_tickers || [];
+    const successRate = progress?.success_rate || (processedCount > 0 ? (completedCount / processedCount) * 100 : 0);
+    const rateLimitHits = progress?.rate_limit_hits || 0;
     
     // Determine stage for UI
-    const stage = progressPercent < 20 ? 'initializing' :
-                  progressPercent < 50 ? 'fetching_data' :
-                  progressPercent < 80 ? 'analyzing' :
+    const stage = progressPercent < 10 ? 'initializing' :
+                  progressPercent < 80 ? 'fetching_data' :
+                  progressPercent < 90 ? 'running_backtest' :
                   progressPercent < 100 ? 'finalizing' : 'complete';
     
-    const stageInfo: Record<string, { icon: string; label: string; color: string }> = {
-      initializing: { icon: '🚀', label: 'Initializing', color: 'from-gray-500 to-gray-600' },
-      fetching_data: { icon: '📊', label: 'Fetching SEC Data', color: 'from-blue-500 to-blue-600' },
-      analyzing: { icon: '🔍', label: 'Analyzing Signals', color: 'from-indigo-500 to-indigo-600' },
-      finalizing: { icon: '📈', label: 'Running Backtest', color: 'from-purple-500 to-purple-600' },
-      complete: { icon: '✅', label: 'Complete', color: 'from-green-500 to-green-600' }
+    const stageInfo: Record<string, { icon: string; label: string; color: string; bgGradient: string }> = {
+      initializing: { icon: '🚀', label: 'Getting Ready', color: 'from-gray-500 to-gray-600', bgGradient: 'from-gray-100 to-gray-200' },
+      fetching_data: { icon: '📊', label: 'Fetching Market Data', color: 'from-blue-500 to-blue-600', bgGradient: 'from-blue-50 to-indigo-100' },
+      running_backtest: { icon: '⚙️', label: 'Running Strategy', color: 'from-purple-500 to-purple-600', bgGradient: 'from-purple-50 to-indigo-100' },
+      finalizing: { icon: '📈', label: 'Crunching Numbers', color: 'from-indigo-500 to-indigo-600', bgGradient: 'from-indigo-50 to-purple-100' },
+      complete: { icon: '✅', label: 'Complete!', color: 'from-green-500 to-green-600', bgGradient: 'from-green-50 to-emerald-100' }
     };
     
     const currentStage = stageInfo[stage];
+    
+    // Format ETA nicely
+    const formatETA = (seconds: number | null): string => {
+      if (!seconds || seconds <= 0) return 'just a moment';
+      if (seconds < 30) return `${Math.ceil(seconds)} seconds`;
+      if (seconds < 60) return '~30 seconds';
+      if (seconds < 90) return '~1 minute';
+      if (seconds < 180) return '~2 minutes';
+      if (seconds < 300) return '~5 minutes';
+      if (seconds < 600) return '~10 minutes';
+      return `~${Math.ceil(seconds / 60)} minutes`;
+    };
+    
+    // Friendly break suggestions based on ETA
+    const getBreakSuggestion = (seconds: number | null): { emoji: string; text: string; activity: string } => {
+      if (!seconds || seconds <= 30) return { emoji: '⚡', text: 'Almost there!', activity: 'Stay right here!' };
+      if (seconds <= 60) return { emoji: '🍬', text: 'Quick candy break?', activity: 'Grab a snack!' };
+      if (seconds <= 120) return { emoji: '☕', text: 'Perfect time for a coffee!', activity: 'Make yourself a nice espresso.' };
+      if (seconds <= 180) return { emoji: '🍵', text: 'Time for chai!', activity: 'A warm cup of chai would be perfect.' };
+      if (seconds <= 300) return { emoji: '🍦', text: 'Ice cream break!', activity: 'Treat yourself to some ice cream.' };
+      if (seconds <= 600) return { emoji: '🚶', text: 'Short walk?', activity: 'Stretch your legs a bit!' };
+      return { emoji: '📖', text: 'Read a chapter!', activity: 'Plenty of time for a good read.' };
+    };
+    
+    const breakSuggestion = getBreakSuggestion(etaSeconds);
+    
+    // Fun facts that rotate based on progress
+    const funFacts = [
+      { min: 0, max: 15, icon: '🏛️', fact: 'SEC 13F filings reveal where the smart money is flowing - the same data used by hedge funds!' },
+      { min: 15, max: 30, icon: '📈', fact: 'Yahoo Finance provides 20+ years of historical price data for accurate backtesting.' },
+      { min: 30, max: 45, icon: '🎯', fact: 'Institutional investors manage over $100 trillion globally. We\'re tracking the best!' },
+      { min: 45, max: 60, icon: '⏱️', fact: 'Backtrader simulates every single trading day to give you accurate results.' },
+      { min: 60, max: 75, icon: '📊', fact: 'We calculate 25+ metrics including Sharpe Ratio, Max Drawdown, Alpha, and Beta.' },
+      { min: 75, max: 90, icon: '🔬', fact: 'Your strategy is being stress-tested against real historical market conditions.' },
+      { min: 90, max: 100, icon: '✨', fact: 'Almost done! We\'re polishing your results and preparing beautiful visualizations.' },
+    ];
+    
+    const currentFact = funFacts.find(f => progressPercent >= f.min && progressPercent < f.max) || funFacts[funFacts.length - 1];
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-6">
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl p-8 max-w-xl w-full border border-white/20">
           
           {/* Animated Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="relative inline-block">
               {/* Outer ring */}
               <div className="absolute inset-0 rounded-full border-4 border-blue-200 opacity-30"></div>
-              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent border-t-blue-600 border-r-indigo-500"></div>
+              <div className="animate-spin rounded-full h-24 w-24 border-4 border-transparent border-t-blue-600 border-r-indigo-500"></div>
               {/* Inner icon */}
-              <div className="absolute inset-0 flex items-center justify-center text-3xl">
+              <div className="absolute inset-0 flex items-center justify-center text-4xl">
                 {currentStage.icon}
               </div>
             </div>
             
-            <h2 className="mt-6 text-2xl font-bold text-gray-900">
+            <h2 className="mt-5 text-2xl font-bold text-gray-900">
               {currentStage.label}
             </h2>
-            <p className="mt-2 text-gray-600 text-sm">
+            <p className="mt-2 text-gray-600 text-sm max-w-sm mx-auto">
               {statusMessage}
             </p>
           </div>
 
-          {/* Progress Bar with percentage */}
-          <div className="mb-8">
-            <div className="flex justify-between items-end mb-3">
-              <span className="text-sm font-semibold text-gray-700">Progress</span>
-              <span className={`text-2xl font-bold bg-gradient-to-r ${currentStage.color} bg-clip-text text-transparent`}>
-                {progressPercent}%
-              </span>
-            </div>
-            <div className="relative w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+          {/* Large Progress Percentage */}
+          <div className="text-center mb-4">
+            <span className={`text-6xl font-bold bg-gradient-to-r ${currentStage.color} bg-clip-text text-transparent`}>
+              {progressPercent}%
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden shadow-inner">
               <div 
-                className={`absolute left-0 top-0 h-4 rounded-full bg-gradient-to-r ${currentStage.color} transition-all duration-700 ease-out`}
-                style={{ width: `${progressPercent}%` }}
+                className={`absolute left-0 top-0 h-5 rounded-full bg-gradient-to-r ${currentStage.color} transition-all duration-700 ease-out`}
+                style={{ width: `${Math.min(progressPercent, 100)}%` }}
               >
-                {/* Shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                {/* Animated shine effect */}
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                </div>
               </div>
             </div>
             
@@ -317,111 +368,143 @@ const BacktestResultsPage: React.FC = () => {
             <div className="flex justify-between mt-3 px-1">
               {['0%', '25%', '50%', '75%', '100%'].map((label, i) => (
                 <div key={label} className="flex flex-col items-center">
-                  <div className={`w-2 h-2 rounded-full ${progressPercent >= i * 25 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                  <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${progressPercent >= i * 25 ? 'bg-blue-600 scale-110' : 'bg-gray-300'}`}></div>
                   <span className="text-xs text-gray-500 mt-1">{label}</span>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* ETA and Break Suggestion */}
+          {etaSeconds && etaSeconds > 0 && (
+            <div className={`mb-6 p-4 bg-gradient-to-r ${currentStage.bgGradient} rounded-xl border border-blue-200`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">{breakSuggestion.emoji}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{breakSuggestion.text}</p>
+                    <p className="text-xs text-gray-600">Estimated time: {formatETA(etaSeconds)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-blue-700">{formatETA(etaSeconds)}</div>
+                  <div className="text-xs text-gray-500">remaining</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Current Activity */}
-          {progress?.current_stock && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+          {currentTicker && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
               <div className="flex items-center">
                 <div className="animate-pulse h-3 w-3 bg-green-500 rounded-full mr-3"></div>
                 <span className="text-sm text-gray-700">
-                  Fetching: <span className="font-mono font-bold text-blue-700">{progress.current_stock}</span>
+                  Processing: <span className="font-mono font-bold text-green-700">{currentTicker}</span>
                 </span>
               </div>
             </div>
           )}
 
-          {/* Stats Cards - Compact */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl border border-green-200">
-              <div className="text-xl font-bold text-green-700">{progress?.stocks_completed?.length || 0}</div>
-              <div className="text-xs text-green-600 font-medium">Stocks</div>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm">
+              <div className="text-lg font-bold text-blue-700">{processedCount}</div>
+              <div className="text-xs text-blue-600">Processed</div>
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-indigo-100 rounded-xl border border-purple-200">
-              <div className="text-xl font-bold text-purple-700">{progress?.institutions_analyzed?.length || 0}</div>
-              <div className="text-xs text-purple-600 font-medium">Institutions</div>
+            <div className="text-center p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200 shadow-sm">
+              <div className="text-lg font-bold text-slate-700">{totalCount}</div>
+              <div className="text-xs text-slate-600">Total</div>
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-sky-100 rounded-xl border border-blue-200">
-              <div className="text-xl font-bold text-blue-700">{progress?.details?.length || 0}</div>
-              <div className="text-xs text-blue-600 font-medium">Actions</div>
+            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl border border-green-200 shadow-sm">
+              <div className="text-lg font-bold text-green-700">{completedCount}</div>
+              <div className="text-xs text-green-600">Success</div>
+            </div>
+            <div className="text-center p-3 bg-gradient-to-br from-amber-50 to-orange-100 rounded-xl border border-amber-200 shadow-sm">
+              <div className="text-lg font-bold text-amber-600">{failedCount}</div>
+              <div className="text-xs text-amber-500">Skipped</div>
             </div>
           </div>
 
-          {/* Activity Log */}
-          <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Activity Log
-            </h3>
-            <div className="space-y-1.5">
-              {progress?.details && progress.details.length > 0 ? (
-                [...progress.details].reverse().slice(0, 12).map((detail: string, idx: number) => {
-                  // Determine message type by icon
-                  const isError = detail.includes('❌');
-                  const isWarning = detail.includes('⚠️');
-                  const isSuccess = detail.includes('✅');
-                  const isInfo = detail.includes('⏱️') || detail.includes('📊');
-                  
-                  let colorClass = 'text-gray-700 bg-white';
-                  if (isError) colorClass = 'text-red-700 bg-red-50 border-red-200';
-                  else if (isWarning) colorClass = 'text-amber-700 bg-amber-50 border-amber-200';
-                  else if (isSuccess) colorClass = 'text-green-700 bg-green-50 border-green-200';
-                  else if (isInfo) colorClass = 'text-blue-700 bg-blue-50 border-blue-200';
-                  
-                  return (
-                    <div 
-                      key={idx} 
-                      className={`text-xs flex items-start p-2 rounded border animate-fadeIn ${colorClass}`}
-                    >
-                      <span className="text-blue-500 mr-2 flex-shrink-0">•</span>
-                      <span className="flex-1 font-mono">{detail}</span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-xs text-gray-500 italic p-2">Starting backtest analysis...</div>
+          {/* Success Rate Bar */}
+          {processedCount > 0 && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl border border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-gray-600">Data Fetch Success Rate</span>
+                <span className={`text-sm font-bold ${successRate >= 80 ? 'text-green-600' : successRate >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {successRate.toFixed(0)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    successRate >= 80 ? 'bg-green-500' : successRate >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${successRate}%` }}
+                ></div>
+              </div>
+              {rateLimitHits > 0 && (
+                <p className="text-xs text-amber-600 mt-2 flex items-center">
+                  <span className="mr-1">🚦</span>
+                  Rate limiting detected - automatically adjusting speed
+                </p>
               )}
             </div>
-          </div>
+          )}
 
-          {/* Fun Facts / Tips */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+          {/* Failed Tickers (if any) */}
+          {failedTickers.length > 0 && (
+            <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
+              <div className="flex items-start">
+                <span className="text-lg mr-2">⚠️</span>
+                <div>
+                  <p className="text-xs text-amber-700">
+                    <span className="font-semibold">Skipped {failedCount} tickers:</span> {failedTickers.slice(0, 5).join(', ')}
+                    {failedTickers.length > 5 && ` +${failedTickers.length - 5} more`}
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Don't worry! Your backtest continues with available data.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rotating Fun Facts */}
+          <div className="p-4 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-xl border border-indigo-200 shadow-sm">
             <div className="flex items-start">
-              <svg className="h-5 w-5 text-indigo-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
+              <span className="text-2xl mr-3 flex-shrink-0">{currentFact.icon}</span>
               <div>
                 <h4 className="text-sm font-semibold text-indigo-900 mb-1">💡 Did you know?</h4>
-                <p className="text-xs text-indigo-700">
-                  {progress?.stage === 'analyzing_institutions' && "13F filings reveal what billionaires like Warren Buffett are buying and selling each quarter."}
-                  {progress?.stage === 'fetching_market_data' && "We're fetching real-time prices to ensure your backtest uses the most accurate data available."}
-                  {progress?.stage === 'finalizing' && "Your backtest will include detailed performance metrics like Sharpe Ratio, Maximum Drawdown, and risk-adjusted returns."}
-                  {!progress?.stage && "AlphaVantage's rate limit of 5 calls/min ensures data quality but requires patience. Coffee break? ☕"}
+                <p className="text-xs text-indigo-700 leading-relaxed">
+                  {currentFact.fact}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Time Estimate & Status */}
+          {/* Status footer */}
           <div className="mt-6 text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-sm text-slate-600">
               <div className="animate-pulse h-2 w-2 bg-green-500 rounded-full"></div>
-              <span>Processing backtest...</span>
-              <span className="text-slate-400">|</span>
-              <span>⏱️ Usually takes 1-3 minutes</span>
+              <span>Processing...</span>
+              {processedCount > 0 && totalCount > 0 && (
+                <>
+                  <span className="text-slate-400">|</span>
+                  <span>{processedCount} of {totalCount} stocks</span>
+                </>
+              )}
             </div>
           </div>
         </div>
         
-        {/* Bottom decorative wave */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white/10 to-transparent pointer-events-none"></div>
+        {/* CSS for shimmer animation */}
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+          }
+        `}</style>
       </div>
     );
   }

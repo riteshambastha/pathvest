@@ -5,6 +5,7 @@ Supports both Custom Engine and LEAN Engine
 """
 
 import asyncio
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import pandas as pd
@@ -95,9 +96,9 @@ class BacktestOrchestrator:
         print(f"🎯 Backtest Engine: {engine_type.upper()}")
         print(f"{'='*60}\n")
         
-        def update_progress(message: str, percent: int, details: List[str] = None):
+        def update_progress(message: str, percent: int, details: List[str] = None, progress_data: Dict = None):
             if progress_callback:
-                progress_callback(message, percent, details or [])
+                progress_callback(message, percent, details or [], progress_data)
             print(f"📍 [{percent}%] {message}")
             if details:
                 for detail in details:
@@ -602,6 +603,7 @@ class BacktestOrchestrator:
             # Step 3: Fetch historical prices (with rate limiting)
             prices_fetched = []
             prices_failed = []
+            fetch_start_time = time.time()  # Track when fetching started for ETA calculation
             
             def price_progress_callback(ticker, idx, total, success=True):
                 status = "✅" if success else "⚠️"
@@ -611,6 +613,40 @@ class BacktestOrchestrator:
                     prices_failed.append(ticker)
                     
                 progress_percent = 40 + int((idx/total) * 40)
+                
+                # Calculate ETA based on elapsed time
+                elapsed = time.time() - fetch_start_time
+                avg_per_stock = elapsed / max(idx, 1)
+                remaining = total - idx
+                eta_seconds = remaining * avg_per_stock
+                
+                # Get friendly break suggestion
+                if eta_seconds > 300:
+                    break_emoji, break_suggestion = '🚶', 'Take a short walk!'
+                elif eta_seconds > 180:
+                    break_emoji, break_suggestion = '🍵', 'Time for chai!'
+                elif eta_seconds > 120:
+                    break_emoji, break_suggestion = '☕', 'Perfect for a coffee!'
+                elif eta_seconds > 60:
+                    break_emoji, break_suggestion = '🍬', 'Quick snack break?'
+                else:
+                    break_emoji, break_suggestion = '⚡', 'Almost there!'
+                
+                # Build detailed progress data
+                progress_data = {
+                    'processed': idx,
+                    'total': total,
+                    'completed': len(prices_fetched),
+                    'failed': len(prices_failed),
+                    'current_ticker': ticker,
+                    'failed_tickers': prices_failed[-5:],  # Last 5 failed
+                    'success_rate': (len(prices_fetched) / max(idx, 1)) * 100,
+                    'eta_seconds': eta_seconds,
+                    'eta_message': f"{break_emoji} {break_suggestion}",
+                    'stage': 'fetching_data',
+                    'break_suggestion': break_suggestion,
+                    'break_emoji': break_emoji,
+                }
 
                 update_progress(
                     f"📈 Market Data: {idx}/{total} stocks processed",
@@ -620,7 +656,8 @@ class BacktestOrchestrator:
                         f"❌ Failed: {len(prices_failed)} stocks",
                         f"🎯 Current: {ticker} ({status})",
                         f"⏱️ Progress: {progress_percent}% complete"
-                    ] + ([f"⚠️ Check ALPHAVANTAGE_API_KEY if many failures"] if len(prices_failed) > 3 else [])
+                    ] + ([f"⚠️ Check ALPHAVANTAGE_API_KEY if many failures"] if len(prices_failed) > 3 else []),
+                    progress_data
                 )
             
             historical_prices = await self.fetch_historical_prices_batch(
@@ -754,10 +791,54 @@ class BacktestOrchestrator:
                 # Choose engine based on engine_type
                 if engine_type == 'backtrader' and BACKTRADER_AVAILABLE:
                     print("🔧 Using Backtrader Engine")
+                    
+                    # Create a progress callback wrapper for Backtrader
+                    async def bt_progress_callback(progress_data: Dict):
+                        """Forward Backtrader progress to the main progress callback."""
+                        if progress_callback:
+                            # Extract relevant data from Backtrader's progress
+                            stage = progress_data.get('stage', 'processing')
+                            message = progress_data.get('message', 'Processing...')
+                            percent = progress_data.get('percent', 50)
+                            eta_seconds = progress_data.get('eta_seconds')
+                            eta_message = progress_data.get('eta_message')
+                            
+                            # Create friendly message with ETA if available
+                            full_message = message
+                            if eta_message:
+                                full_message = f"{message}\n{eta_message}"
+                            
+                            # Include extra details for frontend
+                            details = [full_message]
+                            if progress_data.get('current_ticker'):
+                                details.append(f"📈 Currently fetching: {progress_data['current_ticker']}")
+                            if progress_data.get('failed'):
+                                details.append(f"⚠️ {progress_data['failed']} tickers skipped (data unavailable)")
+                            
+                            try:
+                                progress_callback({
+                                    'percent': percent,
+                                    'message': message,
+                                    'stage': stage,
+                                    'eta_seconds': eta_seconds,
+                                    'eta_message': eta_message,
+                                    'details': details,
+                                    'processed': progress_data.get('processed', 0),
+                                    'total': progress_data.get('total', len(tickers)),
+                                    'completed': progress_data.get('completed', 0),
+                                    'failed': progress_data.get('failed', 0),
+                                    'current_ticker': progress_data.get('current_ticker'),
+                                    'failed_tickers': progress_data.get('failed_tickers', []),
+                                })
+                            except Exception as e:
+                                print(f"⚠️ Progress callback error: {e}")
+                    
                     bt_engine = get_backtrader_engine(
                         initial_capital=strategy_config.get('initial_capital', 100000),
+                        benchmark_ticker=strategy_config.get('benchmark', 'SPY'),
                         commission=0.001,
                         slippage=0.0025,
+                        progress_callback=bt_progress_callback,
                     )
                     raw_results = await bt_engine.run_backtest(
                         signals=signals,
@@ -765,32 +846,20 @@ class BacktestOrchestrator:
                         end_date=end_date,
                         strategy_config=strategy_config,
                         price_data=historical_prices,
+                        progress_callback=bt_progress_callback,
                     )
                     
-                    # Backtrader results are already structured
-                    results = {
-                        'engine': 'backtrader',
-                        'summary': {
-                            'total_return': raw_results.get('total_return', 0),
-                            'sharpe_ratio': raw_results.get('sharpe_ratio', 0),
-                            'max_drawdown': raw_results.get('max_drawdown', 0),
-                            'cagr': raw_results.get('cagr', 0),
-                            'win_rate': raw_results.get('win_rate', 0),
-                            'total_trades': raw_results.get('total_trades', 0),
-                        },
-                        'equity_curve': {
-                            'dates': [p['date'] for p in raw_results.get('portfolio_history', [])],
-                            'portfolio_values': [p['value'] for p in raw_results.get('portfolio_history', [])],
-                            'benchmark_values': []
-                        },
-                        'trades': raw_results.get('trade_log', []),
-                        'initial_capital': raw_results.get('initial_capital', 100000),
-                        'final_value': raw_results.get('final_value', 100000),
-                        'execution_time_seconds': 0,
-                        'api_calls_made': len(tickers) * 2,
-                        'sec_filings_fetched': len(signals),
-                        'stocks_analyzed': raw_results.get('stocks_analyzed', tickers)
-                    }
+                    # Backtrader engine now returns comprehensive results directly
+                    # Just pass through with minor additions
+                    results = raw_results.copy()
+                    results['sec_filings_fetched'] = len(signals)
+                    results['api_calls_made'] = len(tickers) + 1  # tickers + benchmark
+                    
+                    # Ensure monthly_returns and yearly_returns are present
+                    if 'monthly_returns' not in results:
+                        results['monthly_returns'] = []
+                    if 'yearly_returns' not in results:
+                        results['yearly_returns'] = []
                 else:
                     # Use custom HistoricalBacktestEngine (default)
                     if engine_type == 'backtrader' and not BACKTRADER_AVAILABLE:
@@ -1005,10 +1074,6 @@ class BacktestOrchestrator:
                         if i < 3:
                             print(f"🔍 Processed row {i+1}: {key} - {shares_held} shares on {filing_date}")
 
-                        if i >= 100:  # Limit processing for debug
-                            print(f"🔍 Stopping after 100 rows for debug...")
-                            break
-
                     except Exception as e:
                         print(f"❌ Error processing row {i}: {e}")
                         print(f"❌ Row data: {row}")
@@ -1116,14 +1181,7 @@ class BacktestOrchestrator:
                             if total_positions_checked <= 3:
                                 print(f"   ⚠️  Previous shares for {cusip}: {previous['shares']} (not > 0)")
 
-                # Stop after checking a few positions for debug
-                if total_positions_checked >= 5:
-                    print(f"🔍 Debug: Stopping after 5 positions...")
-                    break
-
-                # Stop after checking a few positions for debug
-                if signals_generated >= 10:
-                    break
+                # Allow processing all positions for full backtest
             
             print(f"✅ Found {len(signals)} trading signals from {len(holdings_by_position)} positions")
 

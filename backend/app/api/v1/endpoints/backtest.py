@@ -215,17 +215,40 @@ async def get_backtest_status(backtest_id: str):
         backtest_id: Backtest identifier
     
     Returns:
-        BacktestStatus with current progress
+        BacktestStatus with current progress and detailed info
     """
+    from app.schemas.backtest_response import ProgressDetails
+    
     # First check in-memory storage (for running backtests)
     if backtest_id in backtest_jobs:
         job = backtest_jobs[backtest_id]
+        
+        # Build detailed progress info if available
+        progress_details = None
+        if 'progress_data' in job:
+            pd = job['progress_data']
+            progress_details = ProgressDetails(
+                processed=pd.get('processed'),
+                total=pd.get('total'),
+                completed=pd.get('completed'),
+                failed=pd.get('failed'),
+                current_ticker=pd.get('current_ticker'),
+                failed_tickers=pd.get('failed_tickers', [])[:5],  # Last 5
+                success_rate=pd.get('success_rate'),
+                eta_seconds=pd.get('eta_seconds'),
+                eta_message=pd.get('eta_message'),
+                stage=pd.get('stage'),
+                break_suggestion=pd.get('break_suggestion'),
+                break_emoji=pd.get('break_emoji'),
+            )
+        
         return BacktestStatus(
             backtest_id=backtest_id,
             status=job['status'],
             progress_pct=job.get('progress_pct'),
             message=job.get('message'),
-            estimated_completion_seconds=job.get('estimated_completion_seconds')
+            estimated_completion_seconds=job.get('estimated_completion_seconds'),
+            progress=progress_details
         )
     
     # If not in memory, check database
@@ -240,7 +263,8 @@ async def get_backtest_status(backtest_id: str):
         status=db_result.get('status', 'unknown'),
         progress_pct=100 if db_result.get('status') == 'completed' else 0,
         message=f"Backtest {db_result.get('status', 'unknown')}",
-        estimated_completion_seconds=None
+        estimated_completion_seconds=None,
+        progress=None
     )
 
 
@@ -573,11 +597,25 @@ async def execute_backtest_task(backtest_id: str, request: BacktestRequest):
             print(f"📊 Institutions: {selected_institutions}")
             print(f"🔍 ===== END CONFIG DEBUG =====\n")
             
-            # Define progress callback
-            def update_progress(message: str, progress_pct: int, details: list = None):
+            # Define progress callback with detailed progress data
+            def update_progress(message: str, progress_pct: int, details: list = None, progress_data: dict = None):
                 backtest_jobs[backtest_id]['progress_pct'] = progress_pct
                 backtest_jobs[backtest_id]['message'] = message
-                print(f"📊 Backtest {backtest_id}: {progress_pct}% - {message}")
+                
+                # Store detailed progress data for the status endpoint
+                if progress_data:
+                    backtest_jobs[backtest_id]['progress_data'] = progress_data
+                    # Log detailed progress
+                    print(f"📍 [{progress_pct}%] {message}")
+                    if progress_data.get('completed') is not None:
+                        print(f"    • ✅ Completed: {progress_data.get('completed')} stocks")
+                    if progress_data.get('failed') is not None:
+                        print(f"    • ❌ Failed: {progress_data.get('failed')} stocks")
+                    if progress_data.get('current_ticker'):
+                        print(f"    • 🎯 Current: {progress_data.get('current_ticker')} (✅)")
+                    print(f"    • ⏱️ Progress: {progress_pct}% complete")
+                else:
+                    print(f"📊 Backtest {backtest_id}: {progress_pct}% - {message}")
             
             # Execute backtest with custom engine
             result_dict = await orchestrator.run_strategy_backtest(

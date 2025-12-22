@@ -101,7 +101,9 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
           <div>
             <span className="text-xs text-gray-600">Backtesting Engine</span>
             <p className="text-sm font-medium text-gray-900">
-              {config.engine_type === 'lean' ? '⚡ LEAN Engine (Pro)' : '🚀 Custom Engine (Fast)'}
+              {config.engine_type === 'lean' ? '⚡ LEAN Engine (Pro)' : 
+               config.engine_type === 'backtrader' ? '📊 Backtrader Engine (New)' : 
+               '🚀 Custom Engine (Fast)'}
             </p>
           </div>
           
@@ -380,7 +382,7 @@ const Step8_ReviewBacktest: React.FC<StepProps> = ({ config, prevStep }) => {
                     <ul className="mt-2 text-sm text-blue-800 space-y-1">
                       <li>• Fetching real SEC 13F filings from EDGAR</li>
                       <li>• Downloading historical market data from AlphaVantage</li>
-                      <li>• Running {config.engine_type === 'lean' ? 'LEAN' : 'Custom'} backtest engine</li>
+                      <li>• Running {config.engine_type === 'lean' ? 'LEAN' : config.engine_type === 'backtrader' ? 'Backtrader' : 'Custom'} backtest engine</li>
                       <li>• Calculating performance metrics and risk analytics</li>
                     </ul>
                   </div>

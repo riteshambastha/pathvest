@@ -11,7 +11,7 @@ import Step8_ReviewBacktest from './steps/Step8_ReviewBacktest';
 export interface StrategyConfig {
   // Step 1: Setup
   name?: string;
-  engine_type?: 'custom' | 'lean';
+  engine_type?: 'custom' | 'backtrader' | 'lean';
   backtest_period?: {
     start_date: string;
     end_date: string;

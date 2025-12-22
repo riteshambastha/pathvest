@@ -182,6 +182,22 @@ class BacktestResponse(BaseModel):
         }
 
 
+class ProgressDetails(BaseModel):
+    """Detailed progress information"""
+    processed: Optional[int] = Field(None, description="Total stocks processed")
+    total: Optional[int] = Field(None, description="Total stocks to process")
+    completed: Optional[int] = Field(None, description="Successfully fetched stocks")
+    failed: Optional[int] = Field(None, description="Failed/skipped stocks")
+    current_ticker: Optional[str] = Field(None, description="Currently processing ticker")
+    failed_tickers: Optional[List[str]] = Field(None, description="List of failed tickers")
+    success_rate: Optional[float] = Field(None, description="Success rate percentage")
+    eta_seconds: Optional[float] = Field(None, description="ETA in seconds")
+    eta_message: Optional[str] = Field(None, description="Friendly ETA message")
+    stage: Optional[str] = Field(None, description="Current stage: fetching_data, running_backtest, etc.")
+    break_suggestion: Optional[str] = Field(None, description="Friendly break suggestion")
+    break_emoji: Optional[str] = Field(None, description="Emoji for break suggestion")
+
+
 class BacktestStatus(BaseModel):
     """Backtest status for polling"""
     backtest_id: str
@@ -192,4 +208,5 @@ class BacktestStatus(BaseModel):
         None,
         description="Estimated seconds until completion"
     )
+    progress: Optional[ProgressDetails] = Field(None, description="Detailed progress info")
 

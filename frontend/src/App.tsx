@@ -17,7 +17,7 @@ const App: React.FC = () => {
               <div className="flex">
                 <div className="flex-shrink-0 flex items-center">
                   <h1 className="text-2xl font-bold text-blue-600">PathVest</h1>
-                  <span className="ml-3 text-sm text-gray-500">Equity Backtesting Engine</span>
+                  <span className="ml-3 text-sm text-gray-500">Trade AI</span>
                 </div>
                 <div className="hidden sm:ml-8 sm:flex sm:space-x-8">
                   <a
