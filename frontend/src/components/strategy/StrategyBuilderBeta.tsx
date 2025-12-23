@@ -120,11 +120,12 @@ const StrategyBuilderBeta: React.FC = () => {
     initial_capital: 1000000,
     max_positions: 10,
     engine_type: 'custom',
-    sub_universe_filters: { selected_institutions: [], market_cap_min: 1000000000, lookback_quarters: 4 },
+    universe_filters: { market_cap_min: 1000000000, index_membership: 'SP500', lookback_quarters: 4 },
+    sub_universe_filters: { selected_institutions: [] },
     position_sizing: { method: 'equal_weight', percent_per_position: 5, max_position_size: 0.05, min_position_size: 0.03, max_positions: 20, min_positions: 5 },
     entry_rules: { timing: 'immediate', execution_delay: 1, entry_window_days: 5, technical_confirmation: true },
     exit_rules: { thesis_drift_enabled: true, insider_reversal_enabled: true, trailing_stop_enabled: true, trailing_stop_pct: 0.15, dead_money_enabled: true, dead_money_quarters: 4 },
-    risk_management: { max_portfolio_drawdown: 0.20, max_sector_exposure: 0.30, rebalance_frequency: 'quarterly' },
+    risk_management: { max_portfolio_drawdown: 0.20, sector_concentration_limit: 0.30, rebalancing_frequency: 'quarterly' },
     transaction_costs: { commission_per_share: 0.005, slippage_pct: 0.001 },
   });
 
@@ -384,10 +385,10 @@ const StrategyBuilderBeta: React.FC = () => {
                 <InputField
                   label="Market Cap Minimum ($)"
                   type="number"
-                  value={config.sub_universe_filters?.market_cap_min || 1000000000}
+                  value={config.universe_filters?.market_cap_min || 1000000000}
                   onChange={(val) => updateConfig({
-                    sub_universe_filters: {
-                      ...config.sub_universe_filters,
+                    universe_filters: {
+                      ...config.universe_filters,
                       market_cap_min: parseFloat(val),
                     },
                   })}
@@ -398,10 +399,10 @@ const StrategyBuilderBeta: React.FC = () => {
                 <InputField
                   label="Lookback Quarters"
                   type="number"
-                  value={config.sub_universe_filters?.lookback_quarters || 4}
+                  value={config.universe_filters?.lookback_quarters || 4}
                   onChange={(val) => updateConfig({
-                    sub_universe_filters: {
-                      ...config.sub_universe_filters,
+                    universe_filters: {
+                      ...config.universe_filters,
                       lookback_quarters: parseInt(val),
                     },
                   })}
@@ -639,11 +640,11 @@ const StrategyBuilderBeta: React.FC = () => {
                 <InputField
                   label="Max Sector Exposure (%)"
                   type="number"
-                  value={(config.risk_management?.max_sector_exposure || 0.30) * 100}
+                  value={(config.risk_management?.sector_concentration_limit || 0.30) * 100}
                   onChange={(val) => updateConfig({
                     risk_management: {
                       ...config.risk_management,
-                      max_sector_exposure: parseFloat(val) / 100,
+                      sector_concentration_limit: parseFloat(val) / 100,
                     },
                   })}
                   min="10"
@@ -656,11 +657,11 @@ const StrategyBuilderBeta: React.FC = () => {
                     🔄 Rebalance Frequency
                   </label>
                   <select
-                    value={config.risk_management?.rebalance_frequency || 'quarterly'}
+                    value={config.risk_management?.rebalancing_frequency || 'quarterly'}
                     onChange={(e) => updateConfig({
                       risk_management: {
                         ...config.risk_management,
-                        rebalance_frequency: e.target.value as any,
+                        rebalancing_frequency: e.target.value as any,
                       },
                     })}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:ring-2 focus:ring-tatvic-orange focus:border-transparent transition text-tatvic-text-body font-roboto"
