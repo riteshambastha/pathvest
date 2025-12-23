@@ -784,12 +784,14 @@ const StrategyBuilderBeta: React.FC = () => {
         </div>
       </div>
 
-      {/* Progress Modal */}
-      <BacktestProgressModal
-        isOpen={isRunning}
-        onClose={handleBacktestComplete}
-        backtestId={backtestId}
-      />
+      {/* Progress Modal - Only show when backtest is running */}
+      {isRunning && backtestId && (
+        <BacktestProgressModal
+          backtestId={backtestId}
+          onComplete={handleBacktestComplete}
+          onClose={handleBacktestComplete}
+        />
+      )}
     </div>
   );
 };
